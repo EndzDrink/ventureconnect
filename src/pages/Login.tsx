@@ -3,7 +3,7 @@ import { useState } from 'react';
 
 // --- START TEMPORARY CLIENT INITIALIZATION BLOCK ---
 import { createClient } from '@supabase/supabase-js';
-import type { Database } from '@/integrations/supabase/types'; // Import the type for correct typing
+import type { Database } from '@/database.types'; // Import the type for correct typing
 
 const SUPABASE_URL = "https://ilidtqlbkwyoxoowyggl.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlsaWR0cWxia3d5b3hvb3d5Z2dsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYyMDE3NDIsImV4cCI6MjA3MTc3Nzc0Mn0.hvBhSWEJuu8rXBwm7d6-h0ywNULDrh8J1td4_WGHOgo";

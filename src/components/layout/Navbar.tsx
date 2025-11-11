@@ -1,5 +1,3 @@
-// src/components/layout/Navbar.tsx
-
 import { useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { 
@@ -8,7 +6,7 @@ import {
   Settings, 
   LogOut, 
   Bell, 
-  MessageCircle, 
+  MessageCircle, // The Icon we are focusing on
   Search, 
   Home,
   Tag,
@@ -17,12 +15,15 @@ import {
   Star,
   HelpCircle 
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { ProfileDialog } from "@/components/profile/ProfileDialog";
-import { SettingsDialog } from "@/components/settings/SettingsDialog";
-import { useAuth } from "@/hooks/useAuth";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+// Changed aliased imports to relative imports (assuming components are in the same relative path structure)
+import { Button } from "../ui/button";
+import { Input } from "../ui/input";
+import { ProfileDialog } from "../profile/ProfileDialog";
+import { SettingsDialog } from "../settings/SettingsDialog";
+// The useAuth hook needs to be correctly imported based on its actual location
+// Assuming 'hooks' folder is one level up from 'components/layout'
+import { useAuth } from "../../hooks/useAuth"; 
+import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -30,13 +31,13 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+} from "../ui/dropdown-menu";
 
 export const Navbar = () => {
   const { user, signOut } = useAuth();
   const [profileOpen, setProfileOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [searchTerm, setSearchTerm] = useState(""); // NEW: State for search input
+  const [searchTerm, setSearchTerm] = useState("");
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -48,7 +49,7 @@ export const Navbar = () => {
     }
   };
 
-  // NEW: Search handler function
+  // Search handler function
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchTerm.trim()) {
@@ -58,7 +59,7 @@ export const Navbar = () => {
     }
   };
 
-  // NEW: Mobile search state and handler
+  // Mobile search state and handler
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
   const handleMobileSearchSubmit = (e: React.FormEvent) => {
       handleSearch(e);
@@ -135,11 +136,18 @@ export const Navbar = () => {
               {user ? (
                 // --- Logged-in user view ---
                 <>
+                  {/* Notification Bell (Remains non-functional) */}
                   <Button variant="ghost" size="icon" className="hidden md:flex">
                     <Bell className="h-5 w-5" />
                   </Button>
-                  <Button variant="ghost" size="icon" className="hidden md:flex">
-                    <MessageCircle className="h-5 w-5" />
+                  
+                  {/* Message Button: UPDATED to navigate to /messages */}
+                  <Button variant="ghost" size="icon" className="hidden md:flex relative" asChild>
+                    <Link to="/messages"> {/* Link to the messages route */}
+                      <MessageCircle className="h-5 w-5" />
+                      {/* Cosmetic Notification Badge (In a real app, this would be conditional) */}
+                      <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-red-500 border border-background"></span>
+                    </Link>
                   </Button>
                   
                   <DropdownMenu>
@@ -233,7 +241,6 @@ export const Navbar = () => {
 
       {/* Bottom Navigation - Visible on small screens only */}
       <nav className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/95 border-t border-border/40 z-50 xl:hidden">
-        {/* ... Bottom nav content remains the same ... */}
         <div className="flex items-center justify-around py-2 px-4">
           <Button variant="ghost" size="sm" className="flex flex-col items-center gap-1 p-2 h-auto min-h-[60px] text-xs" onClick={handleHomeClick}>
             <Home className="h-5 w-5" />

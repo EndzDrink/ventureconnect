@@ -219,7 +219,7 @@ export const ActivityCard = ({
                 isAuthenticated ? (
                   <JoinActivityDialog activityTitle={title} category={category} onJoin={handleJoin}>
                     <Button size="sm" className="bg-primary text-primary-foreground hover:bg-primary/90 font-medium text-xs sm:text-sm px-2 sm:px-4">
-                      <span className="hidden sm:inline">Join Adventure</span>
+                      <span className="hidden sm:inline">Join</span>
                       <span className="sm:hidden">Join</span>
                     </Button>
                   </JoinActivityDialog>

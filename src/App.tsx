@@ -3,29 +3,30 @@ import React, { useEffect, useState } from 'react';
 // Import QueryClient and QueryClientProvider to fix "No QueryClient set" error
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'; 
 
-// FIX: Reverting to single-dot relative paths to force file resolution
-import { Toaster } from "./components/ui/toaster"; 
-import { Toaster as Sonner } from "./components/ui/sonner"; 
-import { TooltipProvider } from "./components/ui/tooltip"; 
+// Using absolute paths for all internal imports to resolve compilation errors
+import { Toaster } from "@/components/ui/toaster"; 
+import { Toaster as Sonner } from "@/components/ui/sonner"; 
+import { TooltipProvider } from "@/components/ui/tooltip"; 
 
 // Authentication and Context
-import { AuthProvider, useAuth } from "./hooks/useAuth"; 
-import RedirectIfAuthenticated from "./components/RedirectIfAuthenticated"; 
+import { AuthProvider, useAuth } from "@/hooks/useAuth"; 
+import RedirectIfAuthenticated from "@/components/RedirectIfAuthenticated"; 
 
 // Page Imports
-import Index from "./pages/Index";
-import Deals from "./pages/Deals";
-import Events from "./pages/Events";
-import TravelBuddies from "./pages/TravelBuddies";
-import FeaturedPartners from "./pages/FeaturedPartners";
-import NotFound from "./pages/NotFound";
-import Login from "./pages/Login";
-import Signup from "./pages/Signup";
-import SearchResults from "./pages/SearchResults"; 
+import Index from "@/pages/Index";
+import Deals from "@/pages/Deals";
+import Events from "@/pages/Events";
+import TravelBuddies from "@/pages/TravelBuddies";
+import FeaturedPartners from "@/pages/FeaturedPartners";
+import NotFound from "@/pages/NotFound";
+import Login from "@/pages/Login";
+import Signup from "@/pages/Signup";
+import SearchResults from "@/pages/SearchResults"; 
+import Messages from "./pages/Messages";
 // Note: This import should resolve the "Settings is not defined" error if it was a scoping issue here.
-import Settings from "./components/settings/SettingsDialog";
+import Settings from "@/components/settings/SettingsDialog";
 
-import NavBar from "./components/layout/Navbar"; 
+import NavBar from "@/components/layout/Navbar"; 
 
 // Initialize Query Client once outside the component
 const queryClient = new QueryClient();
@@ -90,7 +91,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ element }) => {
     if (loadingTimeout) {
         // Show an explicit error after 5 seconds
         return (
-            <div className="flex flex-col items-center justify-center min-h-screen p-8 text-center text-red-600">
+            <div className="flex flex-col items-center justify-center min-h-screen p- text-center text-red-600">
                 <h2 className="text-2xl font-bold mb-4">Authentication Initialization Error</h2>
                 <p className="text-lg">The authentication service failed to initialize within 5 seconds. Please check your network connection or the Firebase configuration.</p>
             </div>
@@ -132,6 +133,7 @@ const NavLayout: React.FC<NavLayoutProps> = ({ children }) => {
 // 'IntrinsicAttributes' error and correctly associate the 'userId' prop.
 
 const IndexPage: React.FC<PageProps> = (props) => <Index {...props} />;
+const MessagesPage: React.FC<PageProps> = (props) => <Messages {...props} />;
 const DealsPage: React.FC<PageProps> = (props) => <Deals {...props} />;
 const EventsPage: React.FC<PageProps> = (props) => <Events {...props} />;
 const TravelBuddiesPage: React.FC<PageProps> = (props) => <TravelBuddies {...props} />;
@@ -168,6 +170,7 @@ const App: React.FC = () => {
               <Route path="/deals" element={<NavLayout><ProtectedRoute element={<DealsPage userId={""} />} /></NavLayout>} />
               <Route path="/events" element={<NavLayout><ProtectedRoute element={<EventsPage userId={""} />} /></NavLayout>} />
               <Route path="/travel-buddies" element={<NavLayout><ProtectedRoute element={<TravelBuddiesPage userId={""} />} /></NavLayout>} />
+              <Route path="/messages" element={<NavLayout><ProtectedRoute element={<MessagesPage userId={""} />} /></NavLayout>} />
               
               {/* Changed path from /partners to /featured-partners to resolve 404 */}
               <Route path="/featured-partners" element={<NavLayout><ProtectedRoute element={<FeaturedPartnersPage userId={""} />} /></NavLayout>} />

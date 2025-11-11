@@ -4,25 +4,18 @@ import { Button } from "@/components/ui/button";
 import { Tag, Clock, MapPin, Star } from "lucide-react";
 
 import { useQuery } from '@tanstack/react-query';
-// FIX: Changing path alias to relative path as a fallback
 import { supabase } from '../integrations/supabase/client'; 
+// Import the necessary type helper from the database definition file
+import type { Tables } from '../database.types'; 
 
 // --- Types ---
 
-// Define the TypeScript interface for a Deal
-interface Deal {
-  id: string; 
-  title: string;
-  description: string;
-  original_price: number; 
-  discount_price: number;
-  location: string;
-  rating: number;
-  reviews: number;
-  is_urgent: boolean; 
-  time_left: string;
-  discount_percentage: number; 
-}
+// TEMPORARY FIX: Extend the automatically generated type to include 'image_url'
+// This is needed because the database was updated after the types file was generated.
+// The long-term fix is to regenerate database.types.ts using the Supabase CLI.
+type Deal = Tables<'deals'> & {
+  image_url: string | null;
+};
 
 // Interface for the component props (to satisfy ProtectedRoute)
 interface DealsPageProps {
@@ -34,45 +27,33 @@ interface DealsPageProps {
 
 // Define the data fetching function
 const fetchDeals = async (): Promise<Deal[]> => {
+  // We need to explicitly cast the result to the Deal[] type for the temporary fix above
   const { data, error } = await supabase
-    // FIX 1 (Error 2769): Cast table name to 'any' to bypass stale local types
-    .from('deals' as any) 
-    .select(`
-      id, 
-      title, 
-      description, 
-      location, 
-      rating, 
-      reviews,
-      is_urgent,
-      time_left,
-      original_price,
-      discount_price,
-      discount_percentage
-    `)
+    .from('deals') 
+    .select('*') 
     .order('is_urgent', { ascending: false });
 
   if (error) {
-    // Log the error for runtime debugging
     console.error("Supabase Deal Fetch Error:", error.message);
     throw new Error(error.message);
   }
   
-  // FIX 2 (Error 2352): Cast data to 'unknown' first, then to Deal[] 
-  // to resolve the strict conversion error.
-  return data as unknown as Deal[]; 
+  // Log the data to the console to confirm successful retrieval and check its contents
+  console.log("Fetched Deals Data:", data);
+
+  // Cast the data to Deal[] to satisfy the function return type
+  return data as Deal[]; 
 };
 
 
 // --- Component ---
 
-const Deals: React.FC<DealsPageProps> = ({ userId }) => { // Accept the userId prop
+const Deals: React.FC<DealsPageProps> = ({ userId }) => {
   const { data: deals, isLoading, isError, error } = useQuery({
     queryKey: ['deals'],
     queryFn: fetchDeals,
   });
 
-  // FIX: Removed redundant Navbar component from loading and error states
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background">
@@ -103,8 +84,9 @@ const Deals: React.FC<DealsPageProps> = ({ userId }) => { // Accept the userId p
     }).format(amount);
   };
   
+  // Note: This function requires non-null numbers for calculation, so we handle nulls before calling it.
   const calculateDiscount = (original: number, discount: number) => {
-    if (original === 0) return 0;
+    if (original <= 0) return 0;
     return Math.round(((original - discount) / original) * 100);
   }
 
@@ -126,15 +108,51 @@ const Deals: React.FC<DealsPageProps> = ({ userId }) => { // Accept the userId p
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {dealsData.map((deal) => {
-              const discountPercent = calculateDiscount(deal.original_price, deal.discount_price);
+              // Using null-coalescing on all nullable fields defined in database.types.ts
+              const title = deal.title ?? 'Unknown Deal';
+              const description = deal.description ?? 'No description provided.';
+              const location = deal.location ?? 'Worldwide';
+              const rating = deal.rating ?? 0;
+              const reviews = deal.reviews ?? 0;
+              const isUrgent = deal.is_urgent ?? false;
+              // Ensure time_left is a string or fallback to a string
+              const timeLeft = deal.time_left ? String(deal.time_left) : 'Limited Time';
+              
+              // Now TypeScript knows about image_url
+              const imageUrl = deal.image_url ?? `https://placehold.co/600x400/1e293b/ffffff?text=${encodeURIComponent(title)}`;
+              
+              const originalPrice = deal.original_price ?? 0;
+              const discountPrice = deal.discount_price ?? 0;
+              
+              const discountPercent = calculateDiscount(originalPrice, discountPrice);
+              
+              if (!title) return null;
+
+              const hasPrice = originalPrice > 0 || discountPrice > 0;
               
               return (
                 <Card key={deal.id} className="relative overflow-hidden hover:shadow-lg transition-shadow duration-200">
-                  {deal.is_urgent && (
+                  
+                  {/* --- IMAGE BLOCK --- */}
+                  <div className="h-48 overflow-hidden">
+                    <img 
+                      src={imageUrl} 
+                      alt={`Image for ${title}`} 
+                      className="w-full h-full object-cover transition-transform duration-300 hover:scale-[1.03]"
+                      // Fallback image in case the URL is invalid or the image fails to load
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).onerror = null; // prevents infinite loop
+                        (e.target as HTMLImageElement).src = `https://placehold.co/600x400/1e293b/ffffff?text=Image+Missing`;
+                      }}
+                    />
+                  </div>
+                  {/* --- END IMAGE BLOCK --- */}
+                  
+                  {isUrgent && (
                     <div className="absolute top-4 right-4 z-10">
                       <Badge variant="destructive" className="gap-1 font-semibold text-xs py-1 px-2 shadow-md">
                         <Clock className="h-3 w-3" />
-                        {deal.time_left}
+                        {timeLeft}
                       </Badge>
                     </div>
                   )}
@@ -142,9 +160,9 @@ const Deals: React.FC<DealsPageProps> = ({ userId }) => { // Accept the userId p
                   <CardHeader className="space-y-3">
                     <div className="flex items-start justify-between gap-2">
                       <div>
-                        <CardTitle className="text-xl mb-2 leading-tight">{deal.title}</CardTitle>
+                        <CardTitle className="text-xl mb-2 leading-tight">{title}</CardTitle>
                         <CardDescription className="text-sm">
-                          {deal.description}
+                          {description}
                         </CardDescription>
                       </div>
                     </div>
@@ -152,38 +170,57 @@ const Deals: React.FC<DealsPageProps> = ({ userId }) => { // Accept the userId p
                     <div className="flex items-center gap-4 text-sm">
                       <div className="flex items-center gap-1">
                         <MapPin className="h-4 w-4 text-primary" />
-                        <span className="text-muted-foreground">{deal.location}</span>
+                        <span className="text-muted-foreground">{location}</span>
                       </div>
                       
                       <div className="flex items-center gap-1">
-                        <Star className="h-4 w-4 fill-amber-500 text-amber-500" />
-                        <span className="font-semibold">{deal.rating}</span>
-                        <span className="text-muted-foreground">({deal.reviews})</span>
+                        {/* We use Math.min(5, rating) just in case the rating field exceeds 5 */}
+                        {Array.from({ length: Math.round(Math.min(5, rating)) }).map((_, i) => (
+                           <Star key={i} className="h-4 w-4 fill-amber-500 text-amber-500" />
+                        ))}
+                        <span className="font-semibold">{rating.toFixed(1)}</span>
+                        <span className="text-muted-foreground">({reviews})</span>
                       </div>
                     </div>
                   </CardHeader>
                   
-                  <CardContent className="pt-4">
-                    <div className="flex items-center justify-between border-t pt-4">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span className="text-3xl font-extrabold text-primary">
-                            {formatCurrency(deal.discount_price)}
-                          </span>
-                          <Badge className="bg-green-500 hover:bg-green-600 text-white font-bold text-sm">
-                            -{discountPercent}% OFF
-                          </Badge>
+                  {/* Only render CardContent if price data exists */}
+                  {hasPrice && (
+                    <CardContent className="pt-4">
+                      <div className="flex items-center justify-between border-t pt-4">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-3xl font-extrabold text-primary">
+                              {formatCurrency(discountPrice)}
+                            </span>
+                            {discountPercent > 0 && (
+                              <Badge className="bg-green-500 hover:bg-green-600 text-white font-bold text-sm">
+                                -{discountPercent}% OFF
+                              </Badge>
+                            )}
+                          </div>
+                          {originalPrice > discountPrice && (
+                            <span className="text-sm text-muted-foreground line-through">
+                              {formatCurrency(originalPrice)}
+                            </span>
+                          )}
                         </div>
-                        <span className="text-sm text-muted-foreground line-through">
-                          {formatCurrency(deal.original_price)}
-                        </span>
+                        
+                        <Button className="ml-4 bg-accent hover:bg-accent/90 text-accent-foreground font-semibold shadow-md">
+                          Book Now
+                        </Button>
                       </div>
-                      
-                      <Button className="ml-4 bg-accent hover:bg-accent/90 text-accent-foreground font-semibold shadow-md">
-                        Book Now
-                      </Button>
-                    </div>
-                  </CardContent>
+                    </CardContent>
+                  )}
+                  {!hasPrice && (
+                      <CardContent className="pt-4">
+                          <div className="flex items-center justify-end border-t pt-4">
+                              <Button className="ml-4 bg-accent hover:bg-accent/90 text-accent-foreground font-semibold shadow-md">
+                                  Inquire Now
+                              </Button>
+                          </div>
+                      </CardContent>
+                  )}
                 </Card>
               );
             })}

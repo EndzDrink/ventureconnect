@@ -127,7 +127,7 @@ export const ActivitiesFeed = ({ userId }: ActivitiesFeedProps) => { // NEW: Acc
         ) : (
           activitiesData.map((activity) => (
             // NEW: Pass the received userId down to ActivityCard
-            <ActivityCard key={activity.id} userId={userId} {...activity} /> 
+            <ActivityCard activity_participants={0} key={activity.id} userId={userId} {...activity} /> 
           ))
         )}
       </div>

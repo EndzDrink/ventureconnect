@@ -3,29 +3,30 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Calendar, MapPin, Users, Clock } from "lucide-react";
 
-// 1. Import Supabase Client and React Query
 import { useQuery } from '@tanstack/react-query';
-// Keeping the relative path for robustness against alias errors
 import { supabase } from '../integrations/supabase/client'; 
+// We are intentionally avoiding importing from database.types for the 'Event' type 
+// because 'events' is missing from that file, causing the error.
 
 // --- Types ---
 
-// Define the TypeScript interface for an Event
+// Manual Type Definition: We are forced to define this manually because the 
+// 'events' table is missing from the auto-generated database.types.ts file.
 interface Event {
-  id: string; 
-  title: string;
-  description: string;
-  date: string;          // Storing date as string for simple display (e.g., "March 22-24, 2024")
-  time: string;          // Storing time as string (e.g., "6:00 AM")
-  location: string;
-  participants: number;  // Current number of people who joined
-  max_participants: number; // Renamed to max_participants to fit common snake_case DB style
-  category: string;
-  difficulty: string;
-  price: string;         // Storing price as string (e.g., "ZAR85")
+  id: string | number | null; 
+  title: string | null;
+  description: string | null;
+  date: string | null;          
+  time: string | null;          
+  location: string | null;
+  participants: number | null;  
+  max_participants: number | null; 
+  category: string | null;
+  difficulty: string | null;
+  price: string | null;         
 }
 
-// NEW: Interface for the component props (to satisfy ProtectedRoute)
+// Interface for the component props (to satisfy ProtectedRoute)
 interface EventsPageProps {
   userId: string; // Required by ProtectedRoute, even if not used here
 }
@@ -35,43 +36,33 @@ interface EventsPageProps {
 
 // Define the data fetching function
 const fetchEvents = async (): Promise<Event[]> => {
-  const { data, error } = await supabase
-    // Cast to 'any' to bypass the persistent TypeScript error (2769)
-    .from('events' as any)
-    .select(`
-      id, 
-      title, 
-      description, 
-      date, 
-      time, 
-      location, 
-      participants, 
-      max_participants, 
-      category, 
-      difficulty, 
-      price
-    `)
-    .order('date', { ascending: true }); 
+  // Use 'as any' ONLY on the table name to bypass the TypeScript error that 
+  // the table name 'events' is not recognized by the auto-generated types.
+  
+  // FIX: Explicitly cast the query result structure to inform TypeScript
+  const { data, error } = (await supabase
+    .from('events' as any) 
+    .select(`*`) // Select all columns
+    .order('date', { ascending: true })) as { data: Event[] | null, error: any }; // <--- FIX APPLIED HERE
 
   if (error) {
     console.error("Supabase Event Fetch Error:", error.message);
     throw new Error(error.message);
   }
   
-  // Cast data to 'unknown' then to Event[] to resolve the strict conversion error (2352)
-  return data as unknown as Event[];
+  // Now, TypeScript knows 'data' is Event[] | null, and since we check for error, 
+  // we can safely return it (coalescing to an empty array).
+  return data ?? [];
 };
 
 // --- Component ---
 
-const Events: React.FC<EventsPageProps> = ({ userId }) => { // Accept the userId prop
-  // 4. Use React Query to fetch the data
+const Events: React.FC<EventsPageProps> = ({ userId }) => { 
   const { data: events, isLoading, isError, error } = useQuery({
     queryKey: ['events'],
     queryFn: fetchEvents,
   });
 
-  // FIX: Removed redundant Navbar component
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background">
@@ -80,7 +71,6 @@ const Events: React.FC<EventsPageProps> = ({ userId }) => { // Accept the userId
     );
   }
 
-  // FIX: Removed redundant Navbar component
   if (isError) {
     return (
       <div className="min-h-screen bg-background">
@@ -96,7 +86,6 @@ const Events: React.FC<EventsPageProps> = ({ userId }) => { // Accept the userId
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Navbar is now handled by the NavLayout wrapper in App.tsx, so it's removed here */}
       
       <div className="pt-8 pb-20 lg:pb-0">
         <div className="container mx-auto px-4 py-8">
@@ -112,20 +101,38 @@ const Events: React.FC<EventsPageProps> = ({ userId }) => { // Accept the userId
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {eventsData.map((event) => {
-              const spotsLeft = event.max_participants - event.participants;
+              // --- Data Safety and Coalescing ---
+              // Ensure all fields are safely accessed using nullish coalescing (??)
+              const title = event.title ?? 'No Title';
+              const description = event.description ?? 'No description available.';
+              const location = event.location ?? 'TBD';
+              const date = event.date ?? 'Date TBD';
+              const time = event.time ?? 'Time TBD';
+              const category = event.category ?? 'General';
+              const difficulty = event.difficulty ?? 'Easy';
+              const price = event.price ?? 'Free';
+              // Ensure numbers are handled safely, defaulting to 0
+              const participants = event.participants ?? 0;
+              const maxParticipants = event.max_participants ?? 0;
+              
+              const spotsLeft = maxParticipants - participants;
+              const isFull = spotsLeft <= 0;
+              
+              // Key needs to be a stable string/number. Use id but safely handle null/undefined.
+              const key = event.id ? String(event.id) : title; 
               
               return (
-                <Card key={event.id} className="overflow-hidden hover:shadow-lg transition-shadow duration-200">
+                <Card key={key} className="overflow-hidden hover:shadow-lg transition-shadow duration-200">
                   <CardHeader>
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-2">
-                          <Badge variant="outline" className="text-primary border-primary/20">{event.category}</Badge>
-                          <Badge variant="secondary" className="bg-muted text-muted-foreground border-border">{event.difficulty}</Badge>
+                          <Badge variant="outline" className="text-primary border-primary/20">{category}</Badge>
+                          <Badge variant="secondary" className="bg-muted text-muted-foreground border-border">{difficulty}</Badge>
                         </div>
-                        <CardTitle className="text-xl mb-2 leading-tight">{event.title}</CardTitle>
+                        <CardTitle className="text-xl mb-2 leading-tight">{title}</CardTitle>
                         <CardDescription className="text-sm">
-                          {event.description}
+                          {description}
                         </CardDescription>
                       </div>
                     </div>
@@ -133,35 +140,35 @@ const Events: React.FC<EventsPageProps> = ({ userId }) => { // Accept the userId
                     <div className="space-y-2 mt-4 border-t pt-4">
                       <div className="flex items-center gap-2">
                         <Calendar className="h-4 w-4 text-primary" />
-                        <span className="text-sm font-medium">{event.date}</span>
+                        <span className="text-sm font-medium">{date}</span>
                       </div>
                       
                       <div className="flex items-center gap-2">
                         <Clock className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm">{event.time}</span>
+                        <span className="text-sm">{time}</span>
                       </div>
                       
                       <div className="flex items-center gap-2">
                         <MapPin className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm">{event.location}</span>
+                        <span className="text-sm">{location}</span>
                       </div>
                       
                       <div className="flex items-center justify-between gap-4">
                         <div className="flex items-center gap-2">
                           <Users className="h-4 w-4 text-muted-foreground" />
-                          <span className="text-sm font-semibold">{event.participants} / {event.max_participants} joined</span>
+                          <span className="text-sm font-semibold">{participants} / {maxParticipants} joined</span>
                         </div>
                         {spotsLeft > 0 && <Badge className="bg-yellow-500/10 text-yellow-600 font-semibold">{spotsLeft} spots left</Badge>}
-                        {spotsLeft <= 0 && <Badge variant="destructive">Full</Badge>}
+                        {isFull && <Badge variant="destructive">Full</Badge>}
                       </div>
                     </div>
                   </CardHeader>
                   
                   <CardContent>
                     <div className="flex items-center justify-between border-t pt-4">
-                      <div className="text-2xl font-bold text-primary">{event.price}</div>
-                      <Button disabled={spotsLeft <= 0}>
-                        {spotsLeft > 0 ? "Join Event" : "Sold Out"}
+                      <div className="text-2xl font-bold text-primary">{price}</div>
+                      <Button disabled={isFull}>
+                        {isFull ? "Sold Out" : "Join Event"}
                       </Button>
                     </div>
                   </CardContent>

@@ -15,7 +15,7 @@ const Index = ({ userId }: IndexProps) => {
       {/* We assume Navbar is available globally or doesn't need userId */}
       <Navbar />
       
-      <div className="pt-16 pb-20 lg:pb-0 min-h-screen flex flex-col">
+      <div className="pt-4 pb-20 lg:pb-0 min-h-screen flex flex-col">
         <div className="flex-1">
           <div className="container mx-auto px-4 py-6 flex gap-6 min-h-[calc(100vh-4rem)]">
             {/* Left Sponsors Sidebar - Hidden on mobile and small tablets */}

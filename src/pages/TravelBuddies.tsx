@@ -1,78 +1,123 @@
+import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Users, MapPin, Star, MessageCircle, Calendar } from "lucide-react"; // Added Calendar icon
+import { Users, MapPin, Star, MessageCircle, Calendar } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 
-// 1. Import Supabase Client and React Query
-import { useQuery } from '@tanstack/react-query';
-// FIX: Using the corrected relative path for Supabase client
-import { supabase } from '@/integrations/supabase/client'; 
+// --- Supabase Client Creation ---
+import { createClient } from "@supabase/supabase-js"; 
 
-// 2. Define the TypeScript interface for a Travel Buddy
-interface Buddy {
-  id: string;
-  name: string; // The user's full name (or alias)
-  location: string;
-  age: number;
-  rating: number;
-  trips: number;
-  // We assume interests is stored as a JSONB column in Supabase
-  interests: string[] | string; 
-  bio: string;
-  avatar_url: string | null; 
-  looking_for: string; 
-  next_trip: string;   
+const supabaseUrl = "https://ilidtqlbkwyoxoowyggl.supabase.co"; 
+const supabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlsaWR0cWxia3d5b3hvb3d5Z2dsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYyMDE3NDIsImV4cCI6MjA3MTc3Nzc0Mn0.hvBhSWEJuu8rXBwm7d6-h0ywNULDrh8J1td4_WGHOgo"; 
+
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// -----------------------------------------------------------------
+
+
+// Interface for the detailed Profile data retrieved via the JOIN
+interface ProfileDetails {
+    user_id: string; 
+    username: string | null; 
+    rating: number | null;
+    trips: number | null;
+    interests: string[] | string | null; 
+    bio: string | null;
+    avatar_url: string | null; 
+    looking_for: string | null; 
+    next_trip: string | null;   
 }
 
-// NEW: Interface for the component props (to satisfy ProtectedRoute)
+// Interface for the relationship row, containing both user's profile details
+interface BuddyRelationship {
+    id: string; 
+    status: 'accepted' | 'pending' | 'rejected';
+    user_id_1: string; 
+    user_id_2: string; 
+    
+    // UPDATED: Using clearer aliases to prevent PostgREST naming conflict
+    user1_profile: ProfileDetails; 
+    user2_profile: ProfileDetails;
+}
+
 interface TravelBuddiesPageProps {
-  userId: string; // Required by ProtectedRoute
+  userId: string; 
 }
 
 
-// 3. Define the data fetching function
-const fetchTravelBuddies = async (): Promise<Buddy[]> => {
-  const { data, error } = await supabase
-    // Cast to 'any' to bypass the persistent TypeScript error (2769)
-    .from('travel_buddies' as any)
-    .select(`
-      id, 
-      name, 
-      location, 
-      age, 
-      rating, 
-      trips, 
-      interests, 
-      bio, 
-      avatar_url, 
-      looking_for, 
-      next_trip
-    `)
-    .order('rating', { ascending: false }); // Order by rating descending
+const fetchTravelBuddies = async (currentUserId: string): Promise<ProfileDetails[]> => {
+    
+    const profileFields = `user_id, username, rating, trips, interests, bio, avatar_url, looking_for, next_trip`;
 
-  if (error) {
-    console.error("Supabase Buddy Fetch Error:", error.message);
-    throw new Error(error.message);
-  }
-  
-  // Cast data to 'unknown' then to Buddy[] to resolve the strict conversion error (2352)
-  return data as unknown as Buddy[];
+    // UPDATED: Using user1_profile and user2_profile aliases
+    const selectString = `
+        id,
+        status,
+        user_id_1,
+        user_id_2,
+        user1_profile:profiles!user_id_1(${profileFields}),
+        user2_profile:profiles!user_id_2(${profileFields})
+    `;
+    
+    const { data, error } = await supabase
+        .from('travel_buddies')
+        .select(selectString) 
+        .eq('status', 'accepted')
+        .or(`user_id_1.eq.${currentUserId},user_id_2.eq.${currentUserId}`);
+
+    if (error) {
+        console.error("Supabase Buddy Fetch Error:", error.message);
+        throw new Error(`Supabase Query failed. Check RLS and database schema. Details: ${error.message} (Select String: ${selectString.trim()})`);
+    }
+    
+    // Cast the returned data to the correct type.
+    const acceptedRelationships = (data as unknown as BuddyRelationship[]) ?? [];
+
+    // 3. Extract the *other* user's profile from the joined data
+    const buddyProfiles: ProfileDetails[] = acceptedRelationships.map((relationship) => {
+        
+        // UPDATED: Using the new profile property names (user1_profile, user2_profile)
+        if (relationship.user1_profile.user_id === currentUserId) {
+            return relationship.user2_profile;
+        } else {
+            return relationship.user1_profile;
+        }
+    }).filter((profile): profile is ProfileDetails => !!profile); 
+
+    // 4. Sort the profiles by rating client-side
+    return buddyProfiles.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
 };
 
 
-// FIX: Accept the userId prop and remove the Navbar
 const TravelBuddies: React.FC<TravelBuddiesPageProps> = ({ userId }) => {
-  // 4. Use React Query to fetch the data
-  const { data: buddies, isLoading, isError, error } = useQuery({
-    queryKey: ['travelBuddies'],
-    queryFn: fetchTravelBuddies,
+  const { data: buddies, isLoading, isError, error } = useQuery<ProfileDetails[], Error>({
+    queryKey: ['travelBuddies', userId],
+    queryFn: () => fetchTravelBuddies(userId),
+    enabled: !!userId, // Only run the query if userId is available
   });
 
+  React.useEffect(() => {
+    if (isError) {
+      console.error("Query Hook Error:", error);
+    }
+  }, [isError, error]);
+  
+  // Use fallbacks for location and age as they are not queried
+  const fallbackLocation = "World Traveler";
+  const fallbackAge = "N/A";
+
+  if (!userId) {
+      return (
+        <div className="min-h-screen bg-background">
+          <div className="container mx-auto px-4 py-8 pt-8 text-center text-gray-500">Waiting for user authentication...</div>
+        </div>
+      );
+  }
+  
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background">
-        {/* Adjusted padding after Navbar removal */}
         <div className="container mx-auto px-4 py-8 pt-8 text-center">Finding travel buddies...</div>
       </div>
     );
@@ -81,20 +126,33 @@ const TravelBuddies: React.FC<TravelBuddiesPageProps> = ({ userId }) => {
   if (isError) {
     return (
       <div className="min-h-screen bg-background">
-        {/* Adjusted padding after Navbar removal */}
         <div className="container mx-auto px-4 py-8 pt-8 text-center text-red-500">
-          Error loading travel buddies: {error?.message}
+          <h2 className="text-2xl font-bold mb-4">Database Query Failed</h2>
+          <p className="mb-2">Error loading travel buddies. Check your RLS policy and console logs:</p>
+          <pre className="p-3 bg-gray-100 border rounded-md overflow-x-auto text-left text-sm text-red-700">
+             {error?.message}
+          </pre>
         </div>
       </div>
     );
   }
   
-  // Use the fetched data
   const buddiesData = buddies || [];
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Navbar removed as it's handled by the layout */}
+      <script src="https://cdn.tailwindcss.com"></script>
+      <style>{`
+        /* Custom Tailwind Configuration for primary color */
+        :root {
+          --color-primary: 25, 125, 215; /* Blue hue */
+          --color-accent: 76, 175, 80; /* Green hue */
+        }
+        .bg-primary { background-color: rgb(var(--color-primary)); }
+        .text-primary { color: rgb(var(--color-primary)); }
+        .hover\:bg-primary\/90:hover { background-color: rgba(var(--color-primary), 0.9); }
+        .border-primary\/20 { border-color: rgba(var(--color-primary), 0.2); }
+      `}</style>
       
       <div className="pt-8 pb-20 lg:pb-0">
         <div className="container mx-auto px-4 py-8">
@@ -103,50 +161,72 @@ const TravelBuddies: React.FC<TravelBuddiesPageProps> = ({ userId }) => {
               <Users className="h-8 w-8 text-primary" />
               <h1 className="text-3xl font-bold">Travel Buddies</h1>
             </div>
-            <p className="text-muted-foreground text-lg">
+            <p className="text-gray-500 text-lg">
               Connect with fellow travelers and find your perfect travel companion
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {buddiesData.map((buddy) => {
-              // Safely handle interests, which could be an array or a JSON string
+              // We now access buddy details directly
+              const id = buddy.user_id; 
+              const name = buddy.username ?? 'New Adventurer';
+              const location = fallbackLocation; 
+              const age = fallbackAge; 
+              const rating = buddy.rating ?? 0;
+              const trips = buddy.trips ?? 0;
+              const bio = buddy.bio ?? 'This traveler has not written a bio yet.';
+              const lookingFor = buddy.looking_for ?? 'Any companion';
+              const nextTrip = buddy.next_trip ?? 'TBD';
+
               let interestsArray: string[] = [];
               if (Array.isArray(buddy.interests)) {
                 interestsArray = buddy.interests;
-              } else if (typeof buddy.interests === 'string') {
-                try {
-                  interestsArray = JSON.parse(buddy.interests);
-                } catch (e) {
-                  // Fallback if parsing fails
-                  interestsArray = [buddy.interests];
-                }
+              } else if (typeof buddy.interests === 'string' && buddy.interests.length > 0) {
+                 try {
+                  const parsed = JSON.parse(buddy.interests);
+                  if (Array.isArray(parsed)) {
+                    interestsArray = parsed;
+                  } else {
+                    interestsArray = [buddy.interests];
+                  }
+                 } catch (e) {
+                   // Fallback for simple comma-separated string
+                   interestsArray = buddy.interests.split(',').map(s => s.trim()).filter(s => s.length > 0);
+                 }
               }
                 
               const avatarImage = buddy.avatar_url || "";
-              const nameParts = buddy.name.split(' ');
-              const avatarFallback = nameParts.length > 1 
-                ? nameParts[0][0] + nameParts[1][0] 
-                : buddy.name.slice(0, 2);
+              
+              const nameParts = name.trim().split(/\s+/);
+              let avatarFallback = '';
+              if (nameParts.length > 1) {
+                  avatarFallback = nameParts[0][0] + nameParts[nameParts.length - 1][0];
+              } else if (name.length > 1) {
+                  avatarFallback = name.slice(0, 2);
+              } else {
+                  avatarFallback = '?';
+              }
+
 
               return (
-                <Card key={buddy.id} className="overflow-hidden shadow-md hover:shadow-lg transition-shadow duration-200">
+                <Card key={id} className="overflow-hidden shadow-md hover:shadow-lg transition-shadow duration-200">
                   <CardHeader className="text-center pt-6">
                     <div className="flex flex-col items-center gap-3">
                       <Avatar className="h-24 w-24 border-4 border-primary/20 shadow-lg">
-                        <AvatarImage src={avatarImage} alt={buddy.name} />
-                        <AvatarFallback className="text-xl bg-primary text-primary-foreground font-semibold">
+                        <AvatarImage src={avatarImage} alt={name} />
+                        <AvatarFallback className="text-xl bg-primary text-white font-semibold">
                           {avatarFallback.toUpperCase()}
                         </AvatarFallback>
                       </Avatar>
                       
                       <div className="mt-2">
-                        <CardTitle className="text-2xl font-bold">{buddy.name}</CardTitle>
-                        <CardDescription className="flex items-center gap-1 justify-center mt-1 text-sm text-muted-foreground">
+                        <CardTitle className="text-2xl font-bold">{name}</CardTitle>
+                        <CardDescription className="flex items-center gap-1 justify-center mt-1 text-sm text-gray-500">
                           <MapPin className="h-4 w-4 text-primary" />
-                          {buddy.location}
-                          <span className="text-border mx-1">•</span>
-                          {buddy.age} years old
+                          {location}
+                          <span className="text-gray-300 mx-1">•</span>
+                          {age} 
                         </CardDescription>
                       </div>
                     </div>
@@ -154,52 +234,55 @@ const TravelBuddies: React.FC<TravelBuddiesPageProps> = ({ userId }) => {
                     <div className="flex items-center justify-center gap-6 mt-4 border-b pb-4">
                       <div className="flex items-center gap-1">
                         <Star className="h-4 w-4 fill-yellow-500 text-yellow-500" />
-                        <span className="text-sm font-semibold">{buddy.rating}</span>
+                        <span className="text-sm font-semibold">{rating.toFixed(1)}</span>
                       </div>
-                      <div className="text-sm text-muted-foreground flex items-center gap-1">
+                      <div className="text-sm text-gray-500 flex items-center gap-1">
                         <Users className="h-4 w-4" />
-                        {buddy.trips} trips
+                        {trips} trips
                       </div>
                     </div>
                   </CardHeader>
                   
                   <CardContent className="space-y-4 pt-4">
-                    <p className="text-sm text-center italic text-card-foreground/80">{buddy.bio}</p>
+                    <p className="text-sm text-center italic text-gray-700">{bio}</p>
                     
                     <div>
-                      <h4 className="text-sm font-semibold mb-2 text-primary">Interests</h4>
+                      <h4 className="text-sm font-semibold mb-2 text-primary text-center">Interests</h4>
                       <div className="flex flex-wrap gap-2 justify-center">
-                        {interestsArray.map((interest, index) => (
-                          <Badge 
-                            key={index} 
-                            variant="default" 
-                            className="text-xs bg-accent text-accent-foreground hover:bg-accent/80"
-                          >
-                            {interest}
-                          </Badge>
-                        ))}
+                        {interestsArray.length > 0 ? (
+                          interestsArray.slice(0, 4).map((interest, index) => ( // Show max 4 interests
+                            <Badge 
+                              key={index} 
+                              className="text-xs bg-gray-200 text-gray-800 hover:bg-gray-300"
+                            >
+                              {interest}
+                            </Badge>
+                          ))
+                        ) : (
+                          <span className="text-xs text-gray-500">No interests listed</span>
+                        )}
                       </div>
                     </div>
                     
                     <div className="space-y-2 border-t pt-4">
                       <div className="text-sm flex justify-between items-center">
-                        <span className="font-semibold text-card-foreground">Looking for:</span>
-                        <span className="text-muted-foreground font-medium">{buddy.looking_for}</span>
+                        <span className="font-semibold text-gray-700">Looking for:</span>
+                        <span className="text-gray-500 font-medium">{lookingFor}</span>
                       </div>
                       <div className="text-sm flex justify-between items-center">
-                        <span className="font-semibold text-card-foreground">Next trip:</span>
-                        <div className="flex items-center gap-1 text-muted-foreground font-medium">
+                        <span className="font-semibold text-gray-700">Next trip:</span>
+                        <div className="flex items-center gap-1 text-gray-500 font-medium">
                             <Calendar className="h-3 w-3" />
-                            {buddy.next_trip}
+                            {nextTrip}
                         </div>
                       </div>
                     </div>
                     
                     <div className="flex gap-2 pt-4">
-                      <Button variant="outline" className="flex-1">
+                      <Button variant="outline" className="flex-1 border-primary text-primary hover:bg-primary/5">
                         View Profile
                       </Button>
-                      <Button className="flex-1 gap-2 bg-primary hover:bg-primary/90">
+                      <Button className="flex-1 gap-2 bg-primary hover:bg-primary/90 text-white">
                         <MessageCircle className="h-4 w-4" />
                         Message
                       </Button>
@@ -212,9 +295,9 @@ const TravelBuddies: React.FC<TravelBuddiesPageProps> = ({ userId }) => {
 
           {/* Show a message if no buddies are found */}
           {buddiesData.length === 0 && !isLoading && (
-            <div className="text-center mt-10 p-10 text-muted-foreground border border-dashed rounded-xl">
+            <div className="text-center mt-10 p-10 text-gray-500 border border-dashed rounded-xl">
               <Users className="h-6 w-6 mx-auto mb-3" />
-              <p>No travel buddies found. Be the first to list yourself!</p>
+              <p>You don't have any **accepted** travel buddies yet. Find one!</p>
             </div>
           )}
         </div>
