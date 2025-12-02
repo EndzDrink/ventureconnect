@@ -90,6 +90,67 @@ export type Database = { // 🛠️ ADDED 'export' to make the type available gl
         ]
       }
       
+      // 🛠️ NEW: Table to link conversations to participants (Junction Table)
+      conversation_participants: {
+        Row: {
+          created_at: string
+          conversation_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          conversation_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          conversation_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversation_participants_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversation_participants_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      // END 'conversation_participants' TABLE
+      
+      // 🛠️ NEW: Table to store conversation metadata
+      conversations: {
+        Row: {
+          id: string
+          created_at: string
+          last_message_text: string | null // For conversation list summary
+          last_message_at: string | null   // For sorting conversation list
+          // Removed: participant_ids (now in conversation_participants)
+        }
+        Insert: {
+          id?: string
+          created_at?: string
+          last_message_text?: string | null
+          last_message_at?: string | null
+        }
+        Update: {
+          id?: string
+          created_at?: string
+          last_message_text?: string | null
+          last_message_at?: string | null
+        }
+        Relationships: []
+      }
+      // END 'conversations' TABLE
+      
       // 🛠️ ADDED 'COMMENTS' TABLE DEFINITION
       comments: {
         Row: {
@@ -267,6 +328,8 @@ export type Database = { // 🛠️ ADDED 'export' to make the type available gl
           id: string
           sender_id: string
           sent_to_activity_id: string | null
+          // 🛠️ UPDATED: Added foreign key column
+          conversation_id: string | null 
         }
         Insert: {
           content: string
@@ -274,6 +337,8 @@ export type Database = { // 🛠️ ADDED 'export' to make the type available gl
           id?: string
           sender_id: string
           sent_to_activity_id?: string | null
+          // 🛠️ UPDATED: Added foreign key column
+          conversation_id?: string | null
         }
         Update: {
           content?: string
@@ -281,6 +346,8 @@ export type Database = { // 🛠️ ADDED 'export' to make the type available gl
           id?: string
           sender_id?: string
           sent_to_activity_id?: string | null
+          // 🛠️ UPDATED: Added foreign key column
+          conversation_id?: string | null
         }
         Relationships: [
           {
@@ -295,6 +362,14 @@ export type Database = { // 🛠️ ADDED 'export' to make the type available gl
             columns: ["sent_to_activity_id"]
             isOneToOne: false
             referencedRelation: "activities"
+            referencedColumns: ["id"]
+          },
+          // 🛠️ UPDATED: Added relationship to the new conversations table
+          {
+            foreignKeyName: "fk_conversation" // Assuming this is the name you used for the constraint
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
             referencedColumns: ["id"]
           },
         ]

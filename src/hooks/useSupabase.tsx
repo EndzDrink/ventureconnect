@@ -1,10 +1,10 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { useMemo } from 'react';
 
-// NOTE: Replace these with the actual environment variables or configuration method
-// your project uses to access the Supabase URL and Anon Key.
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'YOUR_SUPABASE_URL_HERE';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'YOUR_SUPABASE_ANON_KEY_HERE';
+// FIX: Use Vite's method for accessing environment variables (import.meta.env).
+// VITE requires that public environment variables start with VITE_
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://ilidtqlbkwyoxoowyggl.supabase.co';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlsaWR0cWxia3d5b3hvb3d5Z2dsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYyMDE3NDIsImV4cCI6MjA3MTc3Nzc0Mn0.hvBhSWEJuu8rXBwm7d6-h0ywNULDrh8J1td4_WGHOgo';
 
 // Simplified Database type definition to help with client typing
 interface Database {
@@ -13,6 +13,7 @@ interface Database {
         Tables: {
             conversations: { Row: any; Insert: any; Update: any; };
             messages: { Row: any; Insert: any; Update: any; };
+            conversation_participants: { Row: any; Insert: any; Update: any; }; 
         };
         Functions: {};
     };
@@ -28,7 +29,7 @@ interface Database {
 export const useSupabase = (): SupabaseClient<Database, "public"> => {
   const supabase = useMemo(() => {
     if (!supabaseUrl || !supabaseAnonKey) {
-      console.error("Supabase environment variables are missing. Please configure NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.");
+      console.error("Supabase environment variables are missing. Please configure VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your .env file.");
     }
     
     // Crucial fix: Initialize the Supabase client, explicitly setting the schema to 'public'
@@ -39,5 +40,5 @@ export const useSupabase = (): SupabaseClient<Database, "public"> => {
     });
   }, []);
 
-  return supabase;
-};
+  return supabase; 
+}

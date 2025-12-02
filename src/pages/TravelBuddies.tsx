@@ -4,98 +4,22 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Users, MapPin, Star, MessageCircle, Calendar } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
 
-// --- Supabase Client Creation ---
-import { createClient } from "@supabase/supabase-js"; 
+// --- Import the Custom Hook and its types ---
+// Note: 'ProfileDetails' is imported from the hook file.
+import { useTravelBuddies, ProfileDetails } from '../hooks/useTravelBuddies'; 
+// ------------------------------------------------
 
-const supabaseUrl = "https://ilidtqlbkwyoxoowyggl.supabase.co"; 
-const supabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlsaWR0cWxia3d5b3hvb3d5Z2dsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYyMDE3NDIsImV4cCI6MjA3MTc3Nzc0Mn0.hvBhSWEJuu8rXBwm7d6-h0ywNULDrh8J1td4_WGHOgo"; 
-
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
-// -----------------------------------------------------------------
-
-
-// Interface for the detailed Profile data retrieved via the JOIN
-interface ProfileDetails {
-    user_id: string; 
-    username: string | null; 
-    rating: number | null;
-    trips: number | null;
-    interests: string[] | string | null; 
-    bio: string | null;
-    avatar_url: string | null; 
-    looking_for: string | null; 
-    next_trip: string | null;   
-}
-
-// Interface for the relationship row, containing both user's profile details
-interface BuddyRelationship {
-    id: string; 
-    status: 'accepted' | 'pending' | 'rejected';
-    user_id_1: string; 
-    user_id_2: string; 
-    
-    // UPDATED: Using clearer aliases to prevent PostgREST naming conflict
-    user1_profile: ProfileDetails; 
-    user2_profile: ProfileDetails;
-}
 
 interface TravelBuddiesPageProps {
-  userId: string; 
+  // This userId should come from your global Auth context/hook
+  userId: string | undefined; 
 }
-
-
-const fetchTravelBuddies = async (currentUserId: string): Promise<ProfileDetails[]> => {
-    
-    const profileFields = `user_id, username, rating, trips, interests, bio, avatar_url, looking_for, next_trip`;
-
-    // UPDATED: Using user1_profile and user2_profile aliases
-    const selectString = `
-        id,
-        status,
-        user_id_1,
-        user_id_2,
-        user1_profile:profiles!user_id_1(${profileFields}),
-        user2_profile:profiles!user_id_2(${profileFields})
-    `;
-    
-    const { data, error } = await supabase
-        .from('travel_buddies')
-        .select(selectString) 
-        .eq('status', 'accepted')
-        .or(`user_id_1.eq.${currentUserId},user_id_2.eq.${currentUserId}`);
-
-    if (error) {
-        console.error("Supabase Buddy Fetch Error:", error.message);
-        throw new Error(`Supabase Query failed. Check RLS and database schema. Details: ${error.message} (Select String: ${selectString.trim()})`);
-    }
-    
-    // Cast the returned data to the correct type.
-    const acceptedRelationships = (data as unknown as BuddyRelationship[]) ?? [];
-
-    // 3. Extract the *other* user's profile from the joined data
-    const buddyProfiles: ProfileDetails[] = acceptedRelationships.map((relationship) => {
-        
-        // UPDATED: Using the new profile property names (user1_profile, user2_profile)
-        if (relationship.user1_profile.user_id === currentUserId) {
-            return relationship.user2_profile;
-        } else {
-            return relationship.user1_profile;
-        }
-    }).filter((profile): profile is ProfileDetails => !!profile); 
-
-    // 4. Sort the profiles by rating client-side
-    return buddyProfiles.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
-};
 
 
 const TravelBuddies: React.FC<TravelBuddiesPageProps> = ({ userId }) => {
-  const { data: buddies, isLoading, isError, error } = useQuery<ProfileDetails[], Error>({
-    queryKey: ['travelBuddies', userId],
-    queryFn: () => fetchTravelBuddies(userId),
-    enabled: !!userId, // Only run the query if userId is available
-  });
+  // 1. Use the custom hook to fetch the data
+  const { data: buddies, isLoading, isError, error } = useTravelBuddies(userId);
 
   React.useEffect(() => {
     if (isError) {
@@ -106,6 +30,8 @@ const TravelBuddies: React.FC<TravelBuddiesPageProps> = ({ userId }) => {
   // Use fallbacks for location and age as they are not queried
   const fallbackLocation = "World Traveler";
   const fallbackAge = "N/A";
+
+  // --- Loading States ---
 
   if (!userId) {
       return (
@@ -139,8 +65,11 @@ const TravelBuddies: React.FC<TravelBuddiesPageProps> = ({ userId }) => {
   
   const buddiesData = buddies || [];
 
+  // --- Main Render ---
+
   return (
     <div className="min-h-screen bg-background">
+      {/* Tailwind setup for demonstration */}
       <script src="https://cdn.tailwindcss.com"></script>
       <style>{`
         /* Custom Tailwind Configuration for primary color */

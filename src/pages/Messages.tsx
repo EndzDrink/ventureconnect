@@ -1,50 +1,79 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useAuth } from '@/hooks/useAuth'; // Assuming relative path is resolved or adjusted
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useSupabase } from '../hooks/useSupabase'; 
+// *** IMPORTANT: Importing the centralized hook and types ***
+import { useConversations, Conversation } from '../hooks/useConversations'; 
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'; 
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Search, Send, MessageSquare, CornerUpLeft, MoreVertical, X } from 'lucide-react';
+import { Send, MessageSquare, CornerUpLeft, Loader2 } from 'lucide-react';
+import { RealtimeChannel, SupabaseClient } from '@supabase/supabase-js'; 
 
-// --- MOCK DATA STRUCTURES ---
-
-interface Conversation {
-  id: string;
-  name: string;
-  lastMessage: string;
-  timestamp: string;
-  avatarUrl: string;
-  unreadCount: number;
-}
+// --- TYPES ---
 
 interface Message {
   id: string;
-  senderId: string;
-  text: string;
-  timestamp: string;
+  conversation_id: string;
+  sender_id: string;
+  content: string;
+  created_at: string; // Formatted timestamp
 }
 
-// Mock Data
-const mockConversations: Conversation[] = [
-  { id: 'c1', name: 'Alice, Event Organizer', lastMessage: 'See you at the networking event tomorrow!', timestamp: '10:30 AM', avatarUrl: 'https://placehold.co/150x150/007bff/ffffff?text=AL', unreadCount: 2 },
-  { id: 'c2', name: 'Bob, Travel Buddy', lastMessage: 'Did you finalize the flight details?', timestamp: 'Yesterday', avatarUrl: 'https://placehold.co/150x150/28a745/ffffff?text=BO', unreadCount: 0 },
-  { id: 'c3', name: 'VentureConnect Team', lastMessage: 'Your deal has been approved.', timestamp: 'Mon', avatarUrl: 'https://placehold.co/150x150/6c757d/ffffff?text=VC', unreadCount: 5 },
-  { id: 'c4', name: 'Featured Partner Inc.', lastMessage: 'Here is the new discount code.', timestamp: '3 days ago', avatarUrl: 'https://placehold.co/150x150/ffc107/333333?text=FP', unreadCount: 0 },
-];
+// Type alias must align with the type exported by useSupabase
+type PublicSupabaseClient = SupabaseClient<any, "public">;
 
-const mockMessages: Record<string, Message[]> = {
-  'c1': [
-    { id: 'm1', senderId: 'user', text: 'Thanks for organizing! Looking forward to it.', timestamp: '10:28 AM' },
-    { id: 'm2', senderId: 'c1', text: 'See you at the networking event tomorrow!', timestamp: '10:30 AM' },
-  ],
-  'c2': [
-    { id: 'm3', senderId: 'c2', text: 'Did you finalize the flight details?', timestamp: 'Yesterday' },
-    { id: 'm4', senderId: 'user', text: 'Almost, checking the hotel now.', timestamp: 'Yesterday' },
-  ],
-  // Placeholder for other chats
-  'c3': [{ id: 'm5', senderId: 'c3', text: 'Your deal has been approved.', timestamp: 'Mon' }],
-  'c4': [{ id: 'm6', senderId: 'c4', text: 'Here is the new discount code.', timestamp: '3 days ago' }],
+// --- UTILITIES ---
+
+/**
+ * Helper function to format timestamps (e.g., "10:30 AM", "Yesterday", "Mon")
+ */
+const formatTimestamp = (timestamp: string): string => {
+  if (!timestamp) return 'N/A';
+  const date = new Date(timestamp);
+  const now = new Date();
+  const diffInDays = (now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24);
+
+  if (diffInDays < 1 && date.getDate() === now.getDate()) {
+    // Today: show time
+    return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+  } else if (diffInDays < 2) {
+    // Yesterday
+    return 'Yesterday';
+  } else if (diffInDays < 7) {
+    // Last 7 days: show weekday
+    return date.toLocaleDateString('en-US', { weekday: 'short' });
+  } else {
+    // More than a week ago: show date
+    return date.toLocaleDateString('en-US');
+  }
 };
+
+
+// --- SUPABASE DATA FETCHING FUNCTIONS ---
+
+/**
+ * Fetches all messages for a specific conversation.
+ */
+const fetchMessages = async (supabase: PublicSupabaseClient, conversationId: string): Promise<Message[]> => {
+  if (!conversationId) return [];
+
+  const { data, error } = await supabase
+    .from('messages')
+    .select('*')
+    .eq('conversation_id', conversationId)
+    .order('created_at', { ascending: true });
+
+  if (error) throw new Error(error.message);
+  
+  // Format timestamps
+  const formattedMessages = data.map((msg: any) => ({
+    ...msg,
+    created_at: formatTimestamp(msg.created_at)
+  }));
+
+  return formattedMessages as Message[];
+};
+
 
 // --- CHAT COMPONENTS ---
 
@@ -52,182 +81,244 @@ const mockMessages: Record<string, Message[]> = {
  * Renders a single message bubble.
  */
 const MessageBubble: React.FC<{ message: Message; isCurrentUser: boolean }> = ({ message, isCurrentUser }) => {
-  const bubbleClass = isCurrentUser
-    ? 'bg-primary text-primary-foreground rounded-br-none ml-auto'
-    : 'bg-muted text-foreground rounded-tl-none mr-auto';
+    const alignment = isCurrentUser ? 'justify-end' : 'justify-start';
+    const bgColor = isCurrentUser ? 'bg-indigo-500 text-white' : 'bg-gray-100 text-gray-800';
 
-  return (
-    <div className={`flex ${isCurrentUser ? 'justify-end' : 'justify-start'} mb-4`}>
-      <div className={`max-w-xs md:max-w-md lg:max-w-lg p-3 rounded-xl shadow-md ${bubbleClass}`}>
-        <p className="text-sm break-words">{message.text}</p>
-        <span className={`block text-xs mt-1 ${isCurrentUser ? 'text-primary-foreground/70' : 'text-muted-foreground'} text-right`}>
-          {message.timestamp}
-        </span>
-      </div>
-    </div>
-  );
+    return (
+        <div className={`flex ${alignment} mb-3`}>
+            <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-xl shadow ${bgColor}`}>
+                <p className="text-sm">{message.content}</p>
+                <p className={`text-xs mt-1 opacity-75 ${isCurrentUser ? 'text-right' : 'text-left'}`}>
+                    {message.created_at}
+                </p>
+            </div>
+        </div>
+    );
 };
 
 /**
- * Main Chat Window for a selected conversation.
+ * Main Chat Window for a selected conversation. 
  */
-const ChatWindow: React.FC<{ conversation: Conversation | null; userId: string; onBack: () => void }> = ({ conversation, userId, onBack }) => {
+const ChatWindow: React.FC<{ 
+    conversation: Conversation | null; 
+    userId: string; 
+    onBack: () => void; 
+    supabase: PublicSupabaseClient 
+}> = ({ conversation, userId, onBack, supabase }) => {
+  const queryClient = useQueryClient();
   const [inputText, setInputText] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Scroll to the latest message whenever messages change or conversation is selected
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
-  
-  // Use mock messages for the currently selected conversation
-  const messages = conversation ? mockMessages[conversation.id] || [] : [];
-  
+  // 1. Fetch Messages 
+  const { data: messages, isLoading: isMessagesLoading, error: messagesError } = useQuery<Message[]>({
+    queryKey: ['messages', conversation?.id],
+    queryFn: () => fetchMessages(supabase, conversation?.id || ''),
+    enabled: !!conversation?.id, // Only run if conversation ID exists
+    // We keep polling as a safety net, although Realtime subscription is the primary mechanism
+    refetchInterval: 5000, 
+  });
+
+  // 2. Realtime subscription for message updates
   useEffect(() => {
-    scrollToBottom();
-  }, [conversation, messages]);
+    if (!conversation?.id) return;
 
-  const handleSend = () => {
-    if (inputText.trim() && conversation) {
-      // In a real app, this would be a Firestore or WebSocket write operation.
-      console.log(`Sending to ${conversation.id}: ${inputText.trim()}`);
+    let messageChannel: RealtimeChannel | null = null;
+    
+    // Subscribe to changes in the 'messages' table for the current conversation
+    messageChannel = supabase
+      .channel(`message_updates:${conversation.id}`)
+      .on('postgres_changes', { 
+        event: 'INSERT', 
+        schema: 'public', 
+        table: 'messages', 
+        filter: `conversation_id=eq.${conversation.id}` 
+      }, () => {
+        // When a new message is inserted, invalidate the query to refetch
+        queryClient.invalidateQueries({ queryKey: ['messages', conversation.id] });
+        // Also invalidate conversations query to update the 'last message' summary
+        queryClient.invalidateQueries({ queryKey: ['conversations', userId] });
+      })
+      .subscribe();
+
+    return () => {
+      if (messageChannel) {
+        supabase.removeChannel(messageChannel);
+      }
+    };
+  }, [conversation?.id, userId, supabase, queryClient]);
+
+  // 3. Scroll to bottom when messages load/update
+  useEffect(() => {
+    if (messagesEndRef.current) {
+        messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages]);
+
+
+  // 4. Mutation for sending a new message
+  const sendMessageMutation = useMutation({
+    mutationFn: async (messageContent: string) => {
+      if (!conversation || !userId) throw new Error("Conversation or User ID missing.");
+
+      // 4a. Insert message into the 'messages' table
+      const { data: messageData, error: messageError } = await supabase
+        .from('messages')
+        .insert({
+          conversation_id: conversation.id,
+          sender_id: userId,
+          content: messageContent,
+        });
+      
+      // 4b. Update the parent conversation's last message details
+      const { error: convUpdateError } = await supabase
+        .from('conversations')
+        .update({
+            last_message_text: messageContent,
+            last_message_at: new Date().toISOString()
+        })
+        .eq('id', conversation.id);
+      
+      if (messageError) throw new Error(messageError.message);
+      if (convUpdateError) console.warn("Could not update conversation last message summary:", convUpdateError.message);
+      
+      return messageData;
+    },
+    onSuccess: () => {
       setInputText('');
-      // For mock data, we can pretend to add the message
-      // Note: This won't update the displayed list since messages is hardcoded mockMessages
+      // Invalidate queries to trigger refetch via Realtime listener (or polling)
+      queryClient.invalidateQueries({ queryKey: ['messages', conversation?.id] });
+      queryClient.invalidateQueries({ queryKey: ['conversations', userId] });
+    },
+    onError: (error) => {
+      console.error("Error sending message:", error);
+    },
+  });
+
+  const handleSend = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (inputText.trim() && !sendMessageMutation.isPending) {
+        sendMessageMutation.mutate(inputText.trim());
     }
   };
-
-  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      handleSend();
-    }
-  };
-
+  
   if (!conversation) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center p-6 text-center text-muted-foreground">
-        <MessageSquare className="h-12 w-12 mb-4 text-primary/50" />
-        <h2 className="text-xl font-semibold mb-2">Select a Conversation</h2>
-        <p>Start chatting with other users or partners.</p>
+      <div className="flex flex-col items-center justify-center h-full text-gray-500 bg-white md:bg-gray-100">
+        <MessageSquare className="w-16 h-16 mb-4" />
+        <p className="text-xl font-semibold">Select a conversation to start chatting</p>
       </div>
     );
   }
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-card shadow-lg xl:shadow-none">
-      {/* Chat Header */}
-      <div className="flex items-center p-4 border-b bg-background sticky top-0 z-10">
-        <Button variant="ghost" size="icon" onClick={onBack} className="xl:hidden mr-2">
-          <CornerUpLeft className="h-5 w-5" />
+    <div className="flex flex-col h-full bg-white">
+      {/* Header */}
+      <div className="flex items-center p-4 border-b bg-gray-50">
+        <Button variant="ghost" size="icon" onClick={onBack} className="md:hidden mr-2">
+            <CornerUpLeft className="w-5 h-5" />
         </Button>
-        <Avatar className="h-9 w-9 mr-3">
-          <AvatarImage src={conversation.avatarUrl} alt={conversation.name} />
-          <AvatarFallback>{conversation.name.charAt(0).toUpperCase()}</AvatarFallback>
+        <Avatar className="mr-3">
+          <AvatarFallback>{conversation.display_name.substring(0, 2)}</AvatarFallback>
         </Avatar>
-        <div className="flex-1">
-          <h3 className="font-semibold truncate">{conversation.name}</h3>
-          <p className="text-xs text-muted-foreground">Active now</p>
-        </div>
-        <Button variant="ghost" size="icon">
-          <MoreVertical className="h-5 w-5" />
-        </Button>
+        <h2 className="text-lg font-semibold truncate">{conversation.display_name}</h2>
       </div>
 
-      {/* Message Area */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-2 bg-muted/30">
-        {messages.map((message) => (
-          <MessageBubble 
-            key={message.id} 
-            message={message} 
-            isCurrentUser={message.senderId === 'user'} // Assuming 'user' is the identifier for the current user
-          />
-        ))}
+      {/* Messages Area */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-2 bg-gray-50">
+        {isMessagesLoading ? (
+          <div className="flex justify-center items-center h-full"><Loader2 className="w-6 h-6 animate-spin" /></div>
+        ) : messagesError ? (
+          <div className="text-center text-red-500">Error loading messages.</div>
+        ) : messages && messages.length > 0 ? (
+          messages.map((msg) => (
+            <MessageBubble key={msg.id} message={msg} isCurrentUser={msg.sender_id === userId} />
+          ))
+        ) : (
+          <div className="text-center text-gray-500 pt-8">No messages yet. Say hello!</div>
+        )}
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input Area */}
-      <div className="p-4 border-t bg-background sticky bottom-0 z-10">
-        <div className="flex items-center gap-2">
+      {/* Input Field */}
+      <form onSubmit={handleSend} className="p-4 border-t bg-white">
+        <div className="flex items-center space-x-3">
           <Input
-            placeholder="Type a message..."
-            className="flex-1 pr-10"
+            placeholder="Type your message..."
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
-            onKeyPress={handleKeyPress}
+            disabled={sendMessageMutation.isPending}
+            className="flex-1 rounded-full p-6 text-base focus:ring-indigo-500 focus:border-indigo-500"
           />
-          <Button size="icon" onClick={handleSend} disabled={!inputText.trim()}>
-            <Send className="h-5 w-5" />
+          <Button 
+            type="submit" 
+            size="icon" 
+            disabled={sendMessageMutation.isPending || inputText.trim() === ''}
+            className="rounded-full h-12 w-12 bg-indigo-600 hover:bg-indigo-700 transition-colors"
+          >
+            {sendMessageMutation.isPending ? (
+              <Loader2 className="w-5 h-5 animate-spin" />
+            ) : (
+              <Send className="w-5 h-5" />
+            )}
           </Button>
         </div>
-      </div>
+      </form>
     </div>
   );
 };
 
 /**
- * Sidebar component listing all conversations.
+ * Sidebar component listing all conversations. 
  */
 const ConversationList: React.FC<{ 
-  conversations: Conversation[]; 
-  onSelect: (id: string) => void;
-  selectedId: string | null;
-}> = ({ conversations, onSelect, selectedId }) => {
-  const [searchQuery, setSearchQuery] = useState('');
-  
-  const filteredConversations = conversations.filter(c => 
-    c.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    c.lastMessage.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
+    conversations: Conversation[] | undefined; 
+    isLoading: boolean; 
+    onSelect: (id: string) => void; 
+    selectedId: string | null; 
+    userId: string; // Added userId for displaying
+}> = ({ conversations, isLoading, onSelect, selectedId, userId }) => {
   return (
-    <div className="h-full flex flex-col border-r bg-card">
-      <div className="p-4 border-b">
-        <h2 className="text-2xl font-bold">Messages</h2>
-        <div className="relative mt-3">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search chats..."
-            className="pl-10"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
+    <div className="flex flex-col h-full border-r bg-white overflow-y-auto">
+        <div className="p-4 border-b">
+            <h1 className="text-2xl font-bold text-gray-900">Chats</h1>
+            {/* You could add a search bar here if needed */}
         </div>
-      </div>
-      
-      <div className="flex-1 overflow-y-auto">
-        {filteredConversations.length > 0 ? (
-          filteredConversations.map((c) => (
-            <div
-              key={c.id}
-              className={`flex items-center p-3 cursor-pointer border-b transition-colors hover:bg-muted ${
-                selectedId === c.id ? 'bg-muted border-l-4 border-primary' : ''
-              }`}
-              onClick={() => onSelect(c.id)}
-            >
-              <Avatar className="h-10 w-10 mr-3 flex-shrink-0">
-                <AvatarImage src={c.avatarUrl} alt={c.name} />
-                <AvatarFallback>{c.name.charAt(0).toUpperCase()}</AvatarFallback>
-              </Avatar>
-              <div className="flex-1 min-w-0">
-                <div className="flex justify-between items-center">
-                  <h3 className="font-medium truncate text-sm">{c.name}</h3>
-                  <span className="text-xs text-muted-foreground flex-shrink-0 ml-2">{c.timestamp}</span>
+        
+        {isLoading ? (
+            <div className="p-4 text-center text-gray-500"><Loader2 className="w-5 h-5 animate-spin mx-auto" /></div>
+        ) : conversations && conversations.length > 0 ? (
+            conversations.map((conv) => (
+                <div
+                    key={conv.id}
+                    onClick={() => onSelect(conv.id)}
+                    className={`flex items-center p-4 cursor-pointer border-b transition-colors 
+                                ${selectedId === conv.id ? 'bg-indigo-50 border-l-4 border-indigo-600' : 'hover:bg-gray-50'}`}
+                >
+                    <Avatar className="mr-3">
+                        <AvatarFallback className="bg-indigo-200 text-indigo-700">
+                          {conv.display_name.substring(0, 2)}
+                        </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 overflow-hidden">
+                        <div className="flex justify-between items-start">
+                            <h3 className="font-semibold truncate text-gray-800">{conv.display_name}</h3>
+                            {/* Note: conv.last_message_at is already formatted by the hook */}
+                            <span className="text-xs text-gray-500 flex-shrink-0 ml-2">{conv.last_message_at}</span>
+                        </div>
+                        <p className="text-sm text-gray-600 truncate mt-0.5">{conv.last_message_text}</p>
+                    </div>
                 </div>
-                <div className="flex justify-between items-center mt-1">
-                  <p className="text-sm text-muted-foreground truncate">{c.lastMessage}</p>
-                  {c.unreadCount > 0 && (
-                    <span className="bg-primary text-primary-foreground text-xs font-bold w-5 h-5 flex items-center justify-center rounded-full ml-2 flex-shrink-0">
-                      {c.unreadCount}
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
-          ))
+            ))
         ) : (
-          <p className="p-4 text-center text-muted-foreground">No conversations found.</p>
+            <div className="p-6 text-center text-gray-500">
+                <MessageSquare className="w-6 h-6 mx-auto mb-2" />
+                <p>No conversations found yet. Start a new chat!</p>
+            </div>
         )}
-      </div>
+        
+        <div className="p-4 border-t mt-auto bg-gray-50">
+             <p className="text-xs text-gray-500 truncate">Your User ID: <span className="font-mono text-gray-700">{userId}</span></p>
+        </div>
     </div>
   );
 };
@@ -236,63 +327,90 @@ const ConversationList: React.FC<{
 // --- MAIN PAGE COMPONENT ---
 
 const Messages: React.FC<{ userId: string }> = ({ userId }) => {
-  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(mockConversations[0]?.id || null);
-  const selectedConversation = mockConversations.find(c => c.id === selectedConversationId) || null;
-  const [isMobileChatOpen, setIsMobileChatOpen] = useState(false);
+    const supabase = useSupabase();
+    const queryClient = useQueryClient();
+    const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
+    const [isMobileChatOpen, setIsMobileChatOpen] = useState(false);
 
-  // Handler for selecting a conversation
-  const handleSelectConversation = (id: string) => {
-    setSelectedConversationId(id);
-    setIsMobileChatOpen(true); // Open chat view on mobile
-  };
+    // 1. Fetch Conversations using the centralized hook
+    const { 
+      conversations, 
+      isLoading: isConversationsLoading, 
+      error: conversationsError 
+  } = useConversations();
+    // 2. Realtime subscription for conversation list updates (ensures new chats appear instantly)
+    useEffect(() => {
+      if (!userId) return;
 
-  // Handler to close the chat window on mobile and show the list
-  const handleBackToList = () => {
-    setIsMobileChatOpen(false);
-  };
-  
-  // Reset mobile chat view if the screen size changes to desktop
-  useEffect(() => {
-    const handleResize = () => {
-      if (window.innerWidth >= 1280) { // xl breakpoint
+      let conversationChannel: RealtimeChannel | null = null;
+      
+      // Subscribe to changes in the 'conversations' table
+      conversationChannel = supabase
+        .channel(`user_conversations:${userId}`)
+        .on('postgres_changes', { 
+          event: '*', 
+          schema: 'public', 
+          table: 'conversations',
+        }, () => {
+          // Invalidate the conversations query to trigger a refetch and update the list
+          queryClient.invalidateQueries({ queryKey: ['conversations', userId] });
+        })
+        .subscribe();
+
+      return () => {
+        if (conversationChannel) {
+          supabase.removeChannel(conversationChannel);
+        }
+      };
+    }, [userId, supabase, queryClient]);
+    
+    // Handler for selecting a conversation
+    const handleSelectConversation = useCallback((id: string) => {
+        setSelectedConversationId(id);
+        setIsMobileChatOpen(true); // Open chat window on mobile
+    }, []);
+
+    // Handler to go back to the list on mobile
+    const handleBackToConversations = useCallback(() => {
         setIsMobileChatOpen(false);
-      }
-    };
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
+    }, []);
 
-  return (
-    <div className="container mx-auto p-0 xl:p-6 h-[calc(100vh-64px)] overflow-hidden">
-      <Card className="h-full flex overflow-hidden border-none xl:border">
-        {/* Conversation List (Sidebar) */}
-        <div 
-          className={`h-full w-full xl:w-80 flex-shrink-0 transition-transform duration-300 ease-in-out ${
-            isMobileChatOpen ? 'hidden xl:block' : 'block'
-          }`}
-        >
-          <ConversationList
-            conversations={mockConversations}
-            onSelect={handleSelectConversation}
-            selectedId={selectedConversationId}
-          />
-        </div>
+    const selectedConversation = conversations?.find(c => c.id === selectedConversationId) || null;
+    
+    if (conversationsError) {
+        console.error("Conversations Error:", conversationsError);
+        return <div className="p-4 text-center text-red-500 font-medium">
+            Error loading conversation data. Please check RLS policies and network connections.
+        </div>;
+    }
 
-        {/* Chat Window */}
-        <div 
-          className={`flex-1 h-full transition-transform duration-300 ease-in-out ${
-            isMobileChatOpen ? 'translate-x-0' : 'translate-x-full xl:translate-x-0 hidden xl:flex'
-          }`}
-        >
-          <ChatWindow
-            conversation={selectedConversation}
-            userId={userId}
-            onBack={handleBackToList}
-          />
+    // Responsive layout: 
+    // On small screens, only one panel is visible at a time based on `isMobileChatOpen`.
+    // On medium screens and up, both panels are side-by-side.
+    return (
+        <div className="flex h-screen overflow-hidden bg-gray-100 font-sans">
+            {/* Conversation List (Sidebar) */}
+            <div className={`w-full md:w-1/3 lg:w-1/4 flex-shrink-0 ${isMobileChatOpen ? 'hidden md:flex' : 'flex'}`}>
+                <ConversationList 
+                    conversations={conversations}
+                    isLoading={isConversationsLoading}
+                    onSelect={handleSelectConversation}
+                    selectedId={selectedConversationId}
+                    userId={userId} // Pass userId to the list component
+                />
+            </div>
+
+            {/* Chat Window */}
+            <div className={`flex-1 ${isMobileChatOpen ? 'flex' : 'hidden md:flex'} border-l border-gray-200`}>
+                <ChatWindow 
+                    conversation={selectedConversation} 
+                    userId={userId} 
+                    onBack={handleBackToConversations} 
+                    supabase={supabase}
+                />
+            </div>
         </div>
-      </Card>
-    </div>
-  );
+    );
 };
 
 export default Messages;
