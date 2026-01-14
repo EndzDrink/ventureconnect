@@ -1,12 +1,11 @@
+import { useEffect } from "react"; // Added useEffect
 import { ActivityCard } from "./ActivityCard";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { CreateActivityDialog } from "@/components/dialogs/CreateActivityDialog";
-
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query'; // Added useQueryClient
 import { supabase } from '@/integrations/supabase/client';
 
-// --- 1. Define the Activity Interface ---
 interface Activity {
   id: string;
   title: string;
@@ -14,18 +13,15 @@ interface Activity {
   location: string;
   date: string;
   category: string;
-  
   creator_id: string; 
   username: string;
   avatar: string | null;
-  
   participants: number; 
   likes: number;        
   comments: number;     
   image: string | null;
 }
 
-// --- 2. Define the Data Fetching Function (FIXED ORDERING) ---
 const fetchActivities = async (): Promise<Activity[]> => {
   const { data, error } = await supabase
     .from('activities' as any)
@@ -43,7 +39,6 @@ const fetchActivities = async (): Promise<Activity[]> => {
       creator_id,
       profiles(username, avatar_url)
     `) 
-    // CRITICAL CHANGE: Order by date in descending order (false)
     .order('date', { ascending: false }); 
 
   if (error) {
@@ -51,9 +46,7 @@ const fetchActivities = async (): Promise<Activity[]> => {
     throw new Error(error.message);
   }
   
-  // Mapping logic to safely handle array/object response from Supabase join
   const activitiesData = (data || []).map((item: any) => {
-    // Safely check if profiles is an array (and get the first item) or a single object
     const profileData = Array.isArray(item.profiles) ? item.profiles[0] : item.profiles;
 
     return {
@@ -66,11 +59,8 @@ const fetchActivities = async (): Promise<Activity[]> => {
       participants: item.participants || 0,
       likes: item.likes || 0,
       comments: item.comments || 0,
-      
       image: item.image_url, 
       creator_id: item.creator_id,
-      
-      // Safely extract username and avatar
       username: profileData?.username || 'Unknown User',
       avatar: profileData?.avatar_url || null,
     };
@@ -79,19 +69,45 @@ const fetchActivities = async (): Promise<Activity[]> => {
   return activitiesData as unknown as Activity[];
 };
 
-// --- ActivitiesFeed Props Definition ---
-// NEW: Define the props interface to receive userId
 interface ActivitiesFeedProps {
     userId: string;
 }
 
-// --- ActivitiesFeed Component (with Prop Update) ---
-export const ActivitiesFeed = ({ userId }: ActivitiesFeedProps) => { // NEW: Accept userId
-  // 3. Use React Query to fetch the data
-  const { data: activities, isLoading, isError, error } = useQuery({
+export const ActivitiesFeed = ({ userId }: ActivitiesFeedProps) => {
+  const queryClient = useQueryClient(); // Access the query client to manually invalidate cache
+
+  const { data: activities, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['activitiesFeed'],
     queryFn: fetchActivities,
   });
+
+  // --- REAL-TIME CONNECTION ---
+  useEffect(() => {
+    // 1. Create a channel to listen for changes on the 'activities' table
+    const channel = supabase
+      .channel('activities_realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*', // Listen for ALL events (Insert, Update, Delete)
+          schema: 'public',
+          table: 'activities'
+        },
+        (payload) => {
+          console.log('Real-time change detected!', payload);
+          // 2. Trigger a refetch of the data
+          refetch();
+          // Alternatively, invalidate the query to force a clean background refresh:
+          // queryClient.invalidateQueries({ queryKey: ['activitiesFeed'] });
+        }
+      )
+      .subscribe();
+
+    // 3. Clean up the subscription when the component unmounts
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [refetch]);
 
   if (isLoading) {
     return <div className="text-center py-12 text-muted-foreground">Loading exciting adventures...</div>;
@@ -126,7 +142,6 @@ export const ActivitiesFeed = ({ userId }: ActivitiesFeedProps) => { // NEW: Acc
            </div>
         ) : (
           activitiesData.map((activity) => (
-            // NEW: Pass the received userId down to ActivityCard
             <ActivityCard activity_participants={0} key={activity.id} userId={userId} {...activity} /> 
           ))
         )}

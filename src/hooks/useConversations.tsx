@@ -1,116 +1,72 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSupabase } from './useSupabase';
 import { useAuth } from './useAuth'; 
-import { RealtimeChannel } from '@supabase/supabase-js'; // Needed for real-time listener
 
-// --- Type Definitions (UPDATED) ---
-
-// Define the shape of a single Message row
-export interface Message {
-    id: string;
-    sender_id: string;
-    content: string;
-    created_at: string; // Formatted timestamp
-    conversation_id: string;
-}
-
-// Define the shape of a Conversation row (ADDED properties for display)
 export interface Conversation {
     id: string;
-    // Added based on your screenshot errors:
-    display_name: string; 
-    last_message_text: string;
-    last_message_at: string; // <
-    participant_ids: string[]; // e.g., ['user1-uuid', 'user2-uuid']
-    created_at: string; // Add a timestamp for ordering
+    display_name: string;
+    last_message_text: string | null;
+    last_message_at: string | null; 
 }
 
-// Define the return shape of the custom hook
-export interface UseConversationsResult {
-    conversations: Conversation[];
-    isLoading: boolean;
-    error: Error | null;
-    fetchMessages: (conversationId: string) => Promise<Message[]>; 
-}
-
-// --- Custom Hook (FIXED) ---
-
-/**
- * Custom hook to fetch and manage a user's conversations.
- * @returns {UseConversationsResult}
- */
-export const useConversations = (): UseConversationsResult => {
+export const useConversations = () => {
     const supabase = useSupabase();
-    // FIX 1: Destructure 'user' and 'loading' from useAuth, then calculate userId
-    const { user, loading: isAuthLoading } = useAuth(); // Renaming 'loading' to 'isAuthLoading' for clarity
-    const userId = user?.id; // Calculating userId from the user object
+    const { user, loading: isAuthLoading } = useAuth(); 
+    const userId = user?.id; 
     
     const [conversations, setConversations] = useState<Conversation[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [error, setError] = useState<Error | null>(null);
 
-    // --- 1. Fetch Conversations on Load ---
-    useEffect(() => {
-        // If the user state is still loading, wait.
-        if (isAuthLoading) return;
-        
-        if (!userId) {
-            setIsLoading(false);
-            return;
-        }
-
-        const fetchConversations = async () => {
-            setIsLoading(true);
-            try {
-                // Fetch conversations where the user is a participant
-                const { data, error } = await supabase
-                    .from('conversations')
-                    .select('*, participants(id, display_name)') // Adjust select to fetch participant data if necessary
-                    .contains('participant_ids', [userId]) 
-                    .order('created_at', { ascending: false });
-
-                if (error) throw error;
-                
-                setConversations(data as Conversation[]);
-                setError(null);
-
-            } catch (err) {
-                console.error("Error fetching conversations:", err);
-                setError(err as Error);
-            } finally {
-                setIsLoading(false);
-            }
-        };
-
-        fetchConversations();
-
-    }, [supabase, userId, isAuthLoading]); // Added isAuthLoading to dependencies
-
-
-    // --- 2. Function to Fetch Messages for a Conversation ---
-    const fetchMessages = async (conversationId: string): Promise<Message[]> => {
+    const fetchConversations = useCallback(async () => {
+        if (!userId) return;
         try {
-            const { data, error } = await supabase
-                .from('messages')
-                .select('*')
-                .eq('conversation_id', conversationId)
-                .order('created_at', { ascending: true });
-
-            if (error) throw error;
+            setIsLoading(true);
+            const { data: partData } = await supabase.from('conversation_participants').select('conversation_id').eq('user_id', userId);
+            const ids = (partData as any[] || []).map(p => p.conversation_id);
             
-            return data as Message[];
+            if (ids.length === 0) { setConversations([]); return; }
 
-        } catch (err) {
-            console.error(`Error fetching messages for ${conversationId}:`, err);
-            return []; 
-        }
+            const { data: convs } = await supabase.from('conversations').select('*').in('id', ids).order('last_message_at', { ascending: false });
+            const { data: others } = await supabase.from('conversation_participants').select('conversation_id, user_id').in('conversation_id', ids).neq('user_id', userId);
+            
+            const otherUserIds = (others as any[] || []).map(o => o.user_id);
+            const { data: profiles } = await supabase.from('profiles').select('id, username, full_name').in('id', otherUserIds);
+
+            const merged = (convs as any[] || []).map(c => {
+                const p = (others as any[]).find(o => o.conversation_id === c.id);
+                const prof = (profiles as any[])?.find(pr => pr.id === p?.user_id);
+                return { ...c, display_name: prof?.username || prof?.full_name || "User" };
+            });
+            setConversations(merged);
+        } finally { setIsLoading(false); }
+    }, [supabase, userId]);
+
+    // NEW: Logic to create a new chat record
+    const startConversation = async (targetUserId: string) => {
+        if (!userId) return null;
+
+        // 1. Create the conversation row
+        const { data: newConv, error: convErr } = await (supabase.from('conversations') as any)
+            .insert({ last_message_text: 'New chat started' })
+            .select().single();
+
+        if (convErr) throw convErr;
+
+        // 2. Add both users to the participants table
+        const { error: partErr } = await (supabase.from('conversation_participants') as any).insert([
+            { conversation_id: newConv.id, user_id: userId },
+            { conversation_id: newConv.id, user_id: targetUserId }
+        ]);
+
+        if (partErr) throw partErr;
+
+        await fetchConversations();
+        return newConv.id;
     };
 
-    // --- 3. Return the Hook State and Functions ---
-    return {
-        conversations,
-        isLoading,
-        error,
-        fetchMessages,
-    };
+    useEffect(() => {
+        if (!isAuthLoading && userId) fetchConversations();
+    }, [isAuthLoading, userId, fetchConversations]);
+
+    return { conversations, isLoading, startConversation, refresh: fetchConversations };
 };
