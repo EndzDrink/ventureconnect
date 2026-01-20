@@ -6,7 +6,7 @@ import {
   Settings, 
   LogOut, 
   Bell, 
-  MessageCircle, // The Icon we are focusing on
+  MessageCircle, 
   Search, 
   Home,
   Tag,
@@ -15,14 +15,12 @@ import {
   Star,
   HelpCircle 
 } from "lucide-react";
-// Changed aliased imports to relative imports (assuming components are in the same relative path structure)
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { ProfileDialog } from "../profile/ProfileDialog";
 import { SettingsDialog } from "../settings/SettingsDialog";
-// The useAuth hook needs to be correctly imported based on its actual location
-// Assuming 'hooks' folder is one level up from 'components/layout'
 import { useAuth } from "../../hooks/useAuth"; 
+import { useConversations } from "../../hooks/useConversations"; 
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import {
   DropdownMenu,
@@ -35,11 +33,15 @@ import {
 
 export const Navbar = () => {
   const { user, signOut } = useAuth();
+  const { conversations } = useConversations(); 
   const [profileOpen, setProfileOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const navigate = useNavigate();
   const location = useLocation();
+
+  // Logic: Sum up the actual unread_count from each conversation
+  const unreadCount = conversations.reduce((acc, conv) => acc + (conv.unread_count || 0), 0);
 
   const handleHomeClick = () => {
     if (location.pathname === '/') {
@@ -49,27 +51,22 @@ export const Navbar = () => {
     }
   };
 
-  // Search handler function
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchTerm.trim()) {
-      // Navigate to the search results page with the query parameter
       navigate(`/search?q=${encodeURIComponent(searchTerm.trim())}`);
-      setSearchTerm(''); // Clear the input after searching
+      setSearchTerm(''); 
     }
   };
 
-  // Mobile search state and handler
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
   const handleMobileSearchSubmit = (e: React.FormEvent) => {
       handleSearch(e);
-      setIsMobileSearchOpen(false); // Close mobile search after submission
+      setIsMobileSearchOpen(false);
   };
-
 
   return (
     <>
-      {/* Top Navbar */}
       <nav className="fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/95 border-b border-border/40">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
             <div className="flex items-center gap-2 flex-shrink-0">
@@ -80,7 +77,6 @@ export const Navbar = () => {
             </div>
 
           <div className="flex items-center gap-2 md:gap-6 flex-2 justify-end">
-            {/* Search Area - Responsive */}
             <form onSubmit={handleSearch} className="hidden sm:flex items-center gap-4 flex-1 max-w-xs md:max-w-md">
               <div className="relative w-full">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -94,12 +90,10 @@ export const Navbar = () => {
               </div>
             </form>
 
-            {/* Mobile Search Button */}
             <Button variant="ghost" size="icon" className="sm:hidden" onClick={() => setIsMobileSearchOpen(true)}>
               <Search className="h-5 w-5" />
             </Button>
 
-            {/* ... rest of navigation items ... */}
             <div className="hidden xl:flex items-center gap-1">
               <Button variant="ghost" size="sm" className="gap-2 text-sm" onClick={handleHomeClick}>
                 <Home className="h-4 w-4" />
@@ -131,22 +125,22 @@ export const Navbar = () => {
               </Button>
             </div>
             
-            {/* ===== START OF USER/AUTH CHANGES ===== */}
             <div className="flex items-center gap-2 md:gap-4 flex-shrink-0">
               {user ? (
-                // --- Logged-in user view ---
                 <>
-                  {/* Notification Bell (Remains non-functional) */}
                   <Button variant="ghost" size="icon" className="hidden md:flex">
                     <Bell className="h-5 w-5" />
                   </Button>
                   
-                  {/* Message Button: UPDATED to navigate to /messages */}
+                  {/* Message Button with Accurate Unread Count */}
                   <Button variant="ghost" size="icon" className="hidden md:flex relative" asChild>
-                    <Link to="/messages"> {/* Link to the messages route */}
+                    <Link to="/messages">
                       <MessageCircle className="h-5 w-5" />
-                      {/* Cosmetic Notification Badge (In a real app, this would be conditional) */}
-                      <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-red-500 border border-background"></span>
+                      {unreadCount > 0 && (
+                        <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-600 text-[10px] font-bold text-white border-2 border-background animate-in zoom-in duration-300">
+                          {unreadCount > 9 ? '9+' : unreadCount}
+                        </span>
+                      )}
                     </Link>
                   </Button>
                   
@@ -190,7 +184,6 @@ export const Navbar = () => {
                   </DropdownMenu>
                 </>
               ) : (
-                // --- Logged-out user view ---
                 <div className="flex items-center gap-2">
                   <Button variant="ghost" asChild>
                     <Link to="/login">Login</Link>
@@ -201,12 +194,11 @@ export const Navbar = () => {
                 </div>
               )}
             </div>
-            {/* ===== END OF USER/AUTH CHANGES ===== */}
           </div>
         </div>
       </nav>
 
-      {/* NEW: Full-screen Mobile Search Overlay */}
+      {/* Mobile Search Overlay */}
       {isMobileSearchOpen && (
           <div className="fixed inset-0 z-[60] bg-background/95 backdrop-blur-sm p-4 sm:hidden">
               <div className="flex items-center justify-between h-16">
@@ -225,21 +217,19 @@ export const Navbar = () => {
                       variant="ghost" 
                       onClick={() => {
                           setIsMobileSearchOpen(false);
-                          setSearchTerm(''); // Clear term when closing
+                          setSearchTerm(''); 
                       }}
                   >
                       Cancel
                   </Button>
               </div>
-              {/* Optional: Add search suggestions/history here */}
           </div>
       )}
 
-      {/* Dialogs controlled by Navbar state */}
       <ProfileDialog open={profileOpen} onOpenChange={setProfileOpen} />
       <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
 
-      {/* Bottom Navigation - Visible on small screens only */}
+      {/* Bottom Navigation */}
       <nav className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/95 border-t border-border/40 z-50 xl:hidden">
         <div className="flex items-center justify-around py-2 px-4">
           <Button variant="ghost" size="sm" className="flex flex-col items-center gap-1 p-2 h-auto min-h-[60px] text-xs" onClick={handleHomeClick}>
@@ -264,10 +254,15 @@ export const Navbar = () => {
               <span>Buddies</span>
             </Link>
           </Button>
-          <Button variant="ghost" size="sm" className="flex flex-col items-center gap-1 p-2 h-auto min-h-[60px] text-xs" asChild>
-            <Link to="/featured-partners">
-              <Star className="h-5 w-5" />
-              <span>Partners</span>
+          <Button variant="ghost" size="sm" className="flex flex-col items-center gap-1 p-2 h-auto min-h-[60px] text-xs relative" asChild>
+            <Link to="/messages">
+              <MessageCircle className="h-5 w-5" />
+              <span>Messages</span>
+              {unreadCount > 0 && (
+                <span className="absolute top-2 right-4 flex h-4 w-4 items-center justify-center rounded-full bg-red-600 text-[8px] text-white border border-white">
+                  {unreadCount > 9 ? '!' : unreadCount}
+                </span>
+              )}
             </Link>
           </Button>
         </div>

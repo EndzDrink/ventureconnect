@@ -6,7 +6,8 @@ export interface Conversation {
     id: string;
     display_name: string;
     last_message_text: string | null;
-    last_message_at: string | null; 
+    last_message_at: string | null;
+    unread_count: number; // Added unread count to interface
 }
 
 export const useConversations = () => {
@@ -21,31 +22,74 @@ export const useConversations = () => {
         if (!userId) return;
         try {
             setIsLoading(true);
-            const { data: partData } = await supabase.from('conversation_participants').select('conversation_id').eq('user_id', userId);
-            const ids = (partData as any[] || []).map(p => p.conversation_id);
+            
+            // 1. Get IDs of conversations I'm in
+            const { data: partData } = await (supabase.from('conversation_participants').select('conversation_id').eq('user_id', userId) as any);
+            const ids = (partData || []).map((p: any) => p.conversation_id);
             
             if (ids.length === 0) { setConversations([]); return; }
 
-            const { data: convs } = await supabase.from('conversations').select('*').in('id', ids).order('last_message_at', { ascending: false });
-            const { data: others } = await supabase.from('conversation_participants').select('conversation_id, user_id').in('conversation_id', ids).neq('user_id', userId);
+            // 2. Fetch conversations, the "other" participants, and their profiles
+            const { data: convs } = await (supabase.from('conversations').select('*').in('id', ids).order('last_message_at', { ascending: false }) as any);
+            const { data: others } = await (supabase.from('conversation_participants').select('conversation_id, user_id').in('conversation_id', ids).neq('user_id', userId) as any);
             
-            const otherUserIds = (others as any[] || []).map(o => o.user_id);
-            const { data: profiles } = await supabase.from('profiles').select('id, username, full_name').in('id', otherUserIds);
+            const otherUserIds = (others || []).map((o: any) => o.user_id);
+            const { data: profiles } = await (supabase.from('profiles').select('id, username, full_name').in('id', otherUserIds) as any);
 
-            const merged = (convs as any[] || []).map(c => {
-                const p = (others as any[]).find(o => o.conversation_id === c.id);
-                const prof = (profiles as any[])?.find(pr => pr.id === p?.user_id);
-                return { ...c, display_name: prof?.username || prof?.full_name || "User" };
+            // 3. FETCH UNREAD COUNTS: Get counts of messages not sent by me and not read
+            const { data: unreadData } = await (supabase
+                .from('messages')
+                .select('conversation_id')
+                .in('conversation_id', ids)
+                .eq('is_read', false)
+                .neq('user_id', userId) as any);
+
+            // Merge everything
+            const merged = (convs || []).map((c: any) => {
+                const p = (others || []).find((o: any) => o.conversation_id === c.id);
+                const prof = (profiles || [])?.find((pr: any) => pr.id === p?.user_id);
+                
+                // Calculate unread count for this specific conversation
+                const count = (unreadData || []).filter((m: any) => m.conversation_id === c.id).length;
+
+                return { 
+                    ...c, 
+                    display_name: prof?.username || prof?.full_name || "User",
+                    unread_count: count 
+                };
             });
+            
             setConversations(merged);
-        } finally { setIsLoading(false); }
+        } finally { 
+            setIsLoading(false); 
+        }
     }, [supabase, userId]);
+
+    // Real-time listener for the Navbar and List
+    useEffect(() => {
+        if (!userId) return;
+
+        const channel = supabase
+            .channel('global-chat-updates')
+            .on('postgres_changes', { 
+                event: '*', 
+                schema: 'public', 
+                table: 'messages' 
+            }, () => {
+                // Refresh list whenever any message is sent or marked as read
+                fetchConversations();
+            })
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [supabase, userId, fetchConversations]);
 
     const startConversation = async (targetUserId: string) => {
         if (!userId) return null;
     
         try {
-            // 1. IMPROVED CHECK: Find a conversation where BOTH you and the target user are participants
             const { data: myConversations } = await (supabase
                 .from('conversation_participants')
                 .select('conversation_id')
@@ -64,33 +108,22 @@ export const useConversations = () => {
                 return existing[0].conversation_id;
             }
     
-            // 2. Create new conversation entry (only if no shared chat was found)
             const { data: newConv, error: convErr } = await (supabase.from('conversations') as any)
                 .insert({ last_message_text: 'New conversation started' })
                 .select()
                 .single();
     
-            if (convErr || !newConv) {
-                console.error("Database blocked or failed conversation creation:", convErr);
-                return null;
-            }
+            if (convErr || !newConv) return null;
     
-            // 3. Link both users as participants
-            const { error: partErr } = await (supabase.from('conversation_participants') as any)
+            await (supabase.from('conversation_participants') as any)
                 .insert([
                     { conversation_id: newConv.id, user_id: userId },
                     { conversation_id: newConv.id, user_id: targetUserId }
                 ]);
     
-            if (partErr) {
-                console.error("Failed to link participants:", partErr);
-                return null;
-            }
-    
             await fetchConversations();
             return newConv.id;
         } catch (err) {
-            console.error("Error in startConversation:", err);
             return null;
         }
     };

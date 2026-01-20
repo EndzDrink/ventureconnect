@@ -2,14 +2,13 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Heart, MessageCircle, MapPin, Calendar, Users } from "lucide-react";
-// FIX: Changing relative path depth to ensure successful compilation
+import { Heart, MessageCircle, MapPin, Calendar } from "lucide-react";
 import { JoinActivityDialog } from "../dialogs/JoinActivityDialog"; 
 import { ActivityDetailDialog } from "../dialogs/ActivityDetailDialog";
-import { useState, useEffect, useCallback } from "react"; // Added useCallback/useEffect
+import { useState, useEffect, useCallback } from "react"; 
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "../../integrations/supabase/client"; // Reverting to original path
+import { supabase } from "../../integrations/supabase/client"; 
 
 interface ActivityCardProps {
   id: string;
@@ -43,7 +42,6 @@ export const ActivityCard = ({
   userId,
 }: ActivityCardProps) => {
   const [isLiked, setIsLiked] = useState(false);
-  // Initialize isJoined to false, then check database status on load
   const [isJoined, setIsJoined] = useState(false); 
   const [showDetail, setShowDetail] = useState(false);
   const [currentLikes, setCurrentLikes] = useState(likes);
@@ -53,65 +51,62 @@ export const ActivityCard = ({
 
   const isAuthenticated = !!userId;
 
-  // --- Participation Status Check for Card ---
-  const checkParticipationStatus = useCallback(async () => {
+  const checkUserStatus = useCallback(async () => {
     if (!isAuthenticated || !id) return;
     
-    // Assumes a 'participants' table with 'user_id' and 'activity_id' columns
-    const { data, error } = await supabase
+    const { data: participation } = await supabase
       .from('activity_participants' as any)
       .select('id')
       .eq('activity_id', id)
       .eq('user_id', userId)
-      .limit(1);
+      .maybeSingle();
 
-    if (error) {
-        console.error("Error checking card participation:", error);
-    } else {
-        // If data is returned, the user is a participant (data.length > 0)
-        setIsJoined(data && data.length > 0);
-    }
+    if (participation) setIsJoined(true);
+
+    const { data: likeData } = await supabase
+      .from('activity_likes' as any) 
+      .select('id')
+      .eq('activity_id', id)
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (likeData) setIsLiked(true);
   }, [id, userId, isAuthenticated]);
 
   useEffect(() => {
-    checkParticipationStatus();
-  }, [checkParticipationStatus]);
+    checkUserStatus();
+  }, [checkUserStatus]);
 
-
-  const handleLike = (e: React.MouseEvent) => {
+  const handleLike = async (e: React.MouseEvent) => {
     e.stopPropagation();
     
     if (!isAuthenticated) {
-      toast({
-        description: "Please log in to like activities.",
-        variant: "destructive",
-      });
+      toast({ description: "Please log in to like activities.", variant: "destructive" });
       navigate("/login");
       return;
     }
 
-    // Placeholder logic for liking. Actual DB update would go here.
+    if (isLiked) {
+      await supabase.from('activity_likes' as any).delete().eq('activity_id', id).eq('user_id', userId);
+      setCurrentLikes(prev => prev - 1);
+    } else {
+      await supabase.from('activity_likes' as any).insert({ activity_id: id, user_id: userId });
+      setCurrentLikes(prev => prev + 1);
+    }
     setIsLiked(!isLiked);
-    setCurrentLikes(prev => isLiked ? prev - 1 : prev + 1);
   };
 
   const handleJoin = () => {
-    // This function is called after successful join/registration in the dialog
-    // We set the state and then the DB check on next load/detail open will confirm
     setIsJoined(true);
     setCurrentParticipants(prev => prev + 1);
     toast({
-      description: "Successfully joined the activity! You can now participate in comments.",
+      description: "Successfully joined! Discussion unlocked.",
     });
   };
   
-  // Handles the click for unauthenticated users on the Join button (redirects to login)
   const handleUnauthenticatedJoinClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    toast({
-      description: "Please log in or sign up to join activities.",
-      variant: "default",
-    });
+    toast({ description: "Please log in or sign up to join activities." });
     navigate("/login");
   }
 
@@ -120,18 +115,10 @@ export const ActivityCard = ({
   };
 
   const activityData = {
-    id,
-    username,
-    avatar,
-    location,
-    date,
-    title,
-    description,
-    image,
-    category,
+    id, username, avatar, location, date, title, description, image, category,
     activity_participants: currentParticipants,
     likes: currentLikes,
-    comments // Pass the original comments count for the card stats
+    comments
   };
 
   return (
@@ -173,64 +160,53 @@ export const ActivityCard = ({
         <CardContent className="space-y-4 pb-6">
           <div className="space-y-3">
             <h3 className="font-bold text-xl text-card-foreground leading-tight">{title}</h3>
-            <p className="text-muted-foreground leading-relaxed">{description}</p>
+            <p className="text-muted-foreground leading-relaxed line-clamp-3">{description}</p>
           </div>
           
           {image && (
-            <div className="rounded-xl overflow-hidden bg-muted/50">
+            <div className="rounded-xl overflow-hidden bg-muted/50 h-48 sm:h-64">
               <img 
                 src={image} 
                 alt={title}
-                className="w-full h-64 object-cover transition-transform duration-200 hover:scale-105"
+                className="w-full h-full object-cover transition-transform duration-500 hover:scale-105"
               />
             </div>
           )}
           
           <div className="flex items-center justify-between pt-4 border-t border-border">
-            <div className="flex items-center space-x-6">
+            <div className="flex items-center space-x-4">
               <Button 
                 variant="ghost" 
                 size="sm" 
-                className={`${isLiked ? 'text-destructive' : 'text-muted-foreground hover:text-destructive'} transition-colors p-2 h-auto`}
+                className={`${isLiked ? 'text-destructive' : 'text-muted-foreground hover:text-destructive'} p-1 h-auto`}
                 onClick={handleLike}
               >
-                <Heart className={`h-4 w-4 mr-2 ${isLiked ? 'fill-current' : ''}`} />
-                <span className="font-medium">{currentLikes}</span>
+                <Heart className={`h-5 w-5 mr-1.5 ${isLiked ? 'fill-current' : ''}`} />
+                <span className="font-medium text-sm">{currentLikes}</span>
               </Button>
               
-              {/* REQUIREMENT: Re-added the Comments button/counter for the summary view */}
-              <div className="flex items-center space-x-2 text-sm text-muted-foreground p-2 h-auto">
-                <MessageCircle className="h-4 w-4" />
+              <div className="flex items-center space-x-1.5 text-sm text-muted-foreground p-1 h-auto">
+                <MessageCircle className="h-5 w-5" />
                 <span className="font-medium">{comments}</span>
               </div>
-              
-              <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-                <Users className="h-4 w-4" />
-                <span className="font-medium">{currentParticipants} joined</span>
-              </div>
             </div>
-            <div className="flex-shrink-0">
+
+            {/* FIX: Wrapper div with e.stopPropagation() prevents the detail dialog from opening when joining */}
+            <div className="flex-shrink-0" onClick={(e) => e.stopPropagation()}>
               {isJoined ? (
-                <Button size="sm" variant="outline" disabled className="bg-primary/10 text-primary border-primary/20">
+                <Button size="sm" variant="outline" disabled className="bg-green-50 text-green-600 border-green-200">
                   Joined ✓
                 </Button>
               ) : (
-                // AUTH FLOW: If authenticated, open dialog. If not, redirect to login.
                 isAuthenticated ? (
                   <JoinActivityDialog activityTitle={title} category={category} onJoin={handleJoin}>
-                    <Button size="sm" className="bg-primary text-primary-foreground hover:bg-primary/90 font-medium text-xs sm:text-sm px-2 sm:px-4">
-                      <span className="hidden sm:inline">Join</span>
-                      <span className="sm:hidden">Join</span>
+                    <Button size="sm" className="bg-primary hover:bg-primary/90 font-medium px-6">
+                      Join
                     </Button>
                   </JoinActivityDialog>
                 ) : (
-                  <Button 
-                    size="sm" 
-                    className="bg-primary text-primary-foreground hover:bg-primary/90 font-medium text-xs sm:text-sm px-2 sm:px-4"
-                    onClick={handleUnauthenticatedJoinClick} // Redirect to login
-                  >
-                    <span className="hidden sm:inline">Join Adventure</span>
-                    <span className="sm:hidden">Join</span>
+                  <Button size="sm" className="bg-primary font-medium" onClick={handleUnauthenticatedJoinClick}>
+                    Join
                   </Button>
                 )
               )}
@@ -239,13 +215,13 @@ export const ActivityCard = ({
         </CardContent>
       </Card>
 
-      {/* Note: hasJoined prop still passes the local state, but the Dialog now checks the DB */}
       <ActivityDetailDialog
         open={showDetail}
         onOpenChange={setShowDetail}
         activity={activityData}
         userId={userId} 
         hasJoined={isJoined}
+        isLiked={isLiked}
       />
     </>
   );
