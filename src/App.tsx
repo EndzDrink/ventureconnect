@@ -133,7 +133,7 @@ const NavLayout: React.FC<NavLayoutProps> = ({ children }) => {
 // 'IntrinsicAttributes' error and correctly associate the 'userId' prop.
 
 const IndexPage: React.FC<PageProps> = (props) => <Index {...props} />;
-const MessagesPage: React.FC<PageProps> = (props) => <Messages {...props} />;
+const MessagesPage: React.FC<PageProps> = (props) => <Messages />;
 const DealsPage: React.FC<PageProps> = (props) => <Deals {...props} />;
 const EventsPage: React.FC<PageProps> = (props) => <Events {...props} />;
 const TravelBuddiesPage: React.FC<PageProps> = (props) => <TravelBuddies {...props} />;
