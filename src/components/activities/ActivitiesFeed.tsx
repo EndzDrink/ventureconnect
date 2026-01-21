@@ -1,9 +1,8 @@
-import { useEffect } from "react"; // Added useEffect
 import { ActivityCard } from "./ActivityCard";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { CreateActivityDialog } from "@/components/dialogs/CreateActivityDialog";
-import { useQuery, useQueryClient } from '@tanstack/react-query'; // Added useQueryClient
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
 interface Activity {
@@ -66,7 +65,7 @@ const fetchActivities = async (): Promise<Activity[]> => {
     };
   });
 
-  return activitiesData as unknown as Activity[];
+  return activitiesData as Activity[];
 };
 
 interface ActivitiesFeedProps {
@@ -74,40 +73,10 @@ interface ActivitiesFeedProps {
 }
 
 export const ActivitiesFeed = ({ userId }: ActivitiesFeedProps) => {
-  const queryClient = useQueryClient(); // Access the query client to manually invalidate cache
-
-  const { data: activities, isLoading, isError, error, refetch } = useQuery({
+  const { data: activities, isLoading, isError, error } = useQuery({
     queryKey: ['activitiesFeed'],
     queryFn: fetchActivities,
   });
-
-  // --- REAL-TIME CONNECTION ---
-  useEffect(() => {
-    // 1. Create a channel to listen for changes on the 'activities' table
-    const channel = supabase
-      .channel('activities_realtime')
-      .on(
-        'postgres_changes',
-        {
-          event: '*', // Listen for ALL events (Insert, Update, Delete)
-          schema: 'public',
-          table: 'activities'
-        },
-        (payload) => {
-          console.log('Real-time change detected!', payload);
-          // 2. Trigger a refetch of the data
-          refetch();
-          // Alternatively, invalidate the query to force a clean background refresh:
-          // queryClient.invalidateQueries({ queryKey: ['activitiesFeed'] });
-        }
-      )
-      .subscribe();
-
-    // 3. Clean up the subscription when the component unmounts
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [refetch]);
 
   if (isLoading) {
     return <div className="text-center py-12 text-muted-foreground">Loading exciting adventures...</div>;
@@ -142,7 +111,12 @@ export const ActivitiesFeed = ({ userId }: ActivitiesFeedProps) => {
            </div>
         ) : (
           activitiesData.map((activity) => (
-            <ActivityCard activity_participants={0} key={activity.id} userId={userId} {...activity} /> 
+            <ActivityCard 
+              key={activity.id} 
+              userId={userId} 
+              {...activity} 
+              activity_participants={activity.participants}
+            /> 
           ))
         )}
       </div>
