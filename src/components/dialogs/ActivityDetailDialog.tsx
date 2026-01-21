@@ -219,7 +219,7 @@ export const ActivityDetailDialog = ({
               ) : comments.length === 0 ? (
                 <div className="text-center py-10 border border-dashed rounded-xl flex flex-col items-center gap-2">
                    <MessageCircle className="h-8 w-8 text-muted-foreground/30" />
-                   <p className="text-sm text-muted-foreground">No messages yet. Be the first to say hi!</p>
+                   <p className="text-sm text-muted-foreground">No comments yet. Be the first to say hi!</p>
                 </div>
               ) : (
                 <div className="space-y-6 pb-4">

@@ -1,8 +1,9 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, Users, Trophy, Star } from "lucide-react";
+import { MapPin, Users, Trophy, Star, ChevronRight } from "lucide-react";
 import { SidebarFooter } from "./SidebarFooter";
+import { useNavigate } from "react-router-dom";
 
 const upcomingTrips = [
   { destination: "Lesotho", dates: "June 15-22", companions: 3 },
@@ -22,17 +23,29 @@ const achievements = [
 ];
 
 export const TravelSidebar = () => {
+  const navigate = useNavigate();
+
   return (
     <div className="flex flex-col h-full border-l bg-card/30">
       <div className="flex-1 overflow-y-auto p-6 space-y-6">
-        {/* Upcoming Trips */}
+        {/* Upcoming Trips Linked to Events */}
         <Card className="bg-card/50 backdrop-blur supports-[backdrop-filter]:bg-card/50">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg text-card-foreground">Upcoming Adventures</CardTitle>
+          <CardHeader 
+            className="pb-3 cursor-pointer group flex flex-row items-center justify-between" 
+            onClick={() => navigate("/events")}
+          >
+            <CardTitle className="text-lg text-card-foreground group-hover:text-primary transition-colors">
+              Upcoming Adventures
+            </CardTitle>
+            <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:translate-x-1 transition-transform" />
           </CardHeader>
           <CardContent className="space-y-3">
             {upcomingTrips.map((trip, index) => (
-              <div key={index} className="flex items-center justify-between p-3 rounded-lg bg-secondary/50">
+              <div 
+                key={index} 
+                className="flex items-center justify-between p-3 rounded-lg bg-secondary/50 hover:bg-secondary/80 cursor-pointer transition-colors"
+                onClick={() => navigate("/events")}
+              >
                 <div>
                   <p className="font-semibold text-card-foreground">{trip.destination}</p>
                   <p className="text-sm text-muted-foreground">{trip.dates}</p>
@@ -46,14 +59,24 @@ export const TravelSidebar = () => {
           </CardContent>
         </Card>
 
-        {/* Travel Buddies */}
+        {/* Travel Buddies Linked to Travel Buddies Page */}
         <Card className="bg-card/50 backdrop-blur supports-[backdrop-filter]:bg-card/50">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg text-card-foreground">Travel Buddies</CardTitle>
+          <CardHeader 
+            className="pb-3 cursor-pointer group flex flex-row items-center justify-between" 
+            onClick={() => navigate("/travel-buddies")}
+          >
+            <CardTitle className="text-lg text-card-foreground group-hover:text-primary transition-colors">
+              Travel Buddies
+            </CardTitle>
+            <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:translate-x-1 transition-transform" />
           </CardHeader>
           <CardContent className="space-y-3">
             {travelBuddies.map((buddy, index) => (
-              <div key={index} className="flex items-center space-x-3">
+              <div 
+                key={index} 
+                className="flex items-center space-x-3 p-1 hover:bg-accent/5 rounded-lg cursor-pointer transition-colors"
+                onClick={() => navigate("/travel-buddies")}
+              >
                 <Avatar className="h-10 w-10">
                   <AvatarImage src="" />
                   <AvatarFallback>{buddy.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
@@ -73,7 +96,7 @@ export const TravelSidebar = () => {
           </CardContent>
         </Card>
 
-        {/* Achievements */}
+        {/* Achievements (Static) */}
         <Card className="bg-card/50 backdrop-blur supports-[backdrop-filter]:bg-card/50">
           <CardHeader className="pb-3">
             <CardTitle className="text-lg text-card-foreground">Achievements</CardTitle>
@@ -95,7 +118,6 @@ export const TravelSidebar = () => {
         </Card>
       </div>
       
-      {/* Footer - Fixed at bottom */}
       <div className="border-t bg-background/80">
         <SidebarFooter />
       </div>

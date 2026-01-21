@@ -1,7 +1,8 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ExternalLink, Star, MapPin, Clock } from "lucide-react";
+import { ExternalLink, Star, MapPin, Clock, ChevronRight } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 const sponsors = [
   {
@@ -58,19 +59,29 @@ const featuredAds = [
 ];
 
 export const SponsorsSidebar = () => {
+  const navigate = useNavigate();
+
   return (
     <div className="h-full overflow-y-auto space-y-4 p-4">
-      {/* Sponsored Partners */}
+      {/* Sponsored Partners Linked to Featured Partners */}
       <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-lg flex items-center gap-2">
+        <CardHeader 
+          className="pb-3 cursor-pointer group flex flex-row items-center justify-between" 
+          onClick={() => navigate("/featured-partners")}
+        >
+          <CardTitle className="text-lg flex items-center gap-2 group-hover:text-primary transition-colors">
             <Star className="h-5 w-5 text-primary" />
             Featured Partners
           </CardTitle>
+          <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:translate-x-1 transition-transform" />
         </CardHeader>
         <CardContent className="space-y-4">
           {sponsors.map((sponsor) => (
-            <div key={sponsor.id} className="p-3 rounded-lg border bg-card/50 hover:bg-card/80 transition-colors">
+            <div 
+              key={sponsor.id} 
+              className="p-3 rounded-lg border bg-card/50 hover:bg-card/80 transition-colors cursor-pointer"
+              onClick={() => navigate("/featured-partners")}
+            >
               <div className="flex items-start justify-between mb-2">
                 <div className="flex items-center gap-2">
                   <span className="text-2xl">{sponsor.image}</span>
@@ -106,17 +117,25 @@ export const SponsorsSidebar = () => {
         </CardContent>
       </Card>
 
-      {/* Featured Deals */}
+      {/* Featured Deals Linked to Deals */}
       <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-lg flex items-center gap-2">
+        <CardHeader 
+          className="pb-3 cursor-pointer group flex flex-row items-center justify-between" 
+          onClick={() => navigate("/deals")}
+        >
+          <CardTitle className="text-lg flex items-center gap-2 group-hover:text-primary transition-colors">
             <Clock className="h-5 w-5 text-primary" />
             Limited Deals
           </CardTitle>
+          <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:translate-x-1 transition-transform" />
         </CardHeader>
         <CardContent className="space-y-4">
           {featuredAds.map((ad) => (
-            <div key={ad.id} className="relative p-3 rounded-lg border bg-gradient-to-br from-primary/5 to-primary/10 hover:from-primary/10 hover:to-primary/20 transition-all cursor-pointer">
+            <div 
+              key={ad.id} 
+              className="relative p-3 rounded-lg border bg-gradient-to-br from-primary/5 to-primary/10 hover:from-primary/10 hover:to-primary/20 transition-all cursor-pointer"
+              onClick={() => navigate("/deals")}
+            >
               {ad.urgent && (
                 <Badge className="absolute -top-1 -right-1 text-xs animate-pulse">
                   Hot Deal!
