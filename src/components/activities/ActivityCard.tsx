@@ -2,9 +2,19 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Heart, MessageCircle, MapPin, Calendar } from "lucide-react";
+import { Heart, MessageCircle, MapPin, Calendar, AlertTriangle } from "lucide-react";
 import { JoinActivityDialog } from "../dialogs/JoinActivityDialog"; 
 import { ActivityDetailDialog } from "../dialogs/ActivityDetailDialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useState, useEffect, useCallback } from "react"; 
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
@@ -44,8 +54,8 @@ export const ActivityCard = ({
   const [isLiked, setIsLiked] = useState(false);
   const [isJoined, setIsJoined] = useState(false); 
   const [showDetail, setShowDetail] = useState(false);
+  const [showLeaveAlert, setShowLeaveAlert] = useState(false);
   
-  // Local states to keep UI in sync with live database counts
   const [currentLikes, setCurrentLikes] = useState(likes);
   const [currentParticipants, setCurrentParticipants] = useState(activity_participants);
   const [currentComments, setCurrentComments] = useState(comments);
@@ -54,23 +64,19 @@ export const ActivityCard = ({
   const navigate = useNavigate();
   const isAuthenticated = !!userId;
 
-  // Function to fetch the absolute latest counts from DB for this specific card
   const refreshCounts = useCallback(async () => {
     if (!id) return;
 
-    // Fetch Likes Count
     const { count: likesCount } = await supabase
       .from('activity_likes' as any)
       .select('*', { count: 'exact', head: true })
       .eq('activity_id', id);
 
-    // Fetch Participants Count
     const { count: partsCount } = await supabase
       .from('activity_participants' as any)
       .select('*', { count: 'exact', head: true })
       .eq('activity_id', id);
 
-    // Fetch actual Comment Count (Fixes the mismatch you noticed)
     const { count: commsCount } = await supabase
       .from('comments' as any)
       .select('*', { count: 'exact', head: true })
@@ -81,7 +87,6 @@ export const ActivityCard = ({
     if (commsCount !== null) setCurrentComments(commsCount);
   }, [id]);
 
-  // Check if the current user has already liked or joined
   const checkUserStatus = useCallback(async () => {
     if (!isAuthenticated || !id) return;
     
@@ -93,7 +98,7 @@ export const ActivityCard = ({
         .eq('user_id', userId)
         .maybeSingle();
 
-      if (participation) setIsJoined(true);
+      setIsJoined(!!participation);
 
       const { data: likeData } = await supabase
         .from('activity_likes' as any) 
@@ -102,7 +107,7 @@ export const ActivityCard = ({
         .eq('user_id', userId)
         .maybeSingle();
 
-      if (likeData) setIsLiked(true);
+      setIsLiked(!!likeData);
     } catch (error) {
       console.error("Error checking status:", error);
     }
@@ -112,7 +117,6 @@ export const ActivityCard = ({
     checkUserStatus();
     refreshCounts();
 
-    // Listen for real-time changes so the card updates instantly if someone else comments/joins
     const channel = supabase
       .channel(`card_stats_${id}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'activity_likes', filter: `activity_id=eq.${id}` }, () => refreshCounts())
@@ -145,17 +149,36 @@ export const ActivityCard = ({
     setIsJoined(true);
     refreshCounts();
   };
+
+  const handleLeaveConfirm = async () => {
+    try {
+      const { error } = await supabase
+        .from('activity_participants' as any)
+        .delete()
+        .eq('activity_id', id)
+        .eq('user_id', userId);
+
+      if (error) throw error;
+
+      setIsJoined(false);
+      refreshCounts();
+      toast({ description: "You have left the activity." });
+    } catch (error) {
+      toast({ description: "Error leaving activity.", variant: "destructive" });
+    } finally {
+      setShowLeaveAlert(false);
+    }
+  };
   
   const handleCardClick = () => {
     setShowDetail(true);
   };
 
-  // Data object passed to the Detail Dialog
   const activityData = {
     id, username, avatar, location, date, title, description, image, category,
     activity_participants: currentParticipants,
     likes: currentLikes,
-    comments: currentComments // Pass the live synced count
+    comments: currentComments
   };
 
   return (
@@ -218,10 +241,16 @@ export const ActivityCard = ({
               </div>
             </div>
 
-            <div onClick={(e) => e.stopPropagation()}>
+            <div className="flex-shrink-0" onClick={(e) => e.stopPropagation()}>
               {isJoined ? (
-                <Button size="sm" variant="outline" disabled className="bg-green-50 text-green-600 border-green-200">
-                  Joined ✓
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  onClick={() => setShowLeaveAlert(true)}
+                  className="bg-green-50 text-green-600 border-green-200 opacity-100 hover:bg-destructive hover:text-white hover:border-destructive transition-all duration-200 group min-w-[100px]"
+                >
+                  <span className="group-hover:hidden">Joined ✓</span>
+                  <span className="hidden group-hover:inline">Leave?</span>
                 </Button>
               ) : (
                 <JoinActivityDialog 
@@ -247,6 +276,31 @@ export const ActivityCard = ({
         hasJoined={isJoined}
         isLiked={isLiked}
       />
+
+      {/* Confirmation Alert for Leaving */}
+      <AlertDialog open={showLeaveAlert} onOpenChange={setShowLeaveAlert}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <div className="flex items-center gap-2 text-destructive mb-2">
+              <AlertTriangle className="h-5 w-5" />
+              <AlertDialogTitle>Leave Activity?</AlertDialogTitle>
+            </div>
+            <AlertDialogDescription>
+              Are you sure you want to leave <strong>{title}</strong>? 
+              You will no longer be able to participate in the discussion thread.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep Adventure</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleLeaveConfirm}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Leave Activity
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 };

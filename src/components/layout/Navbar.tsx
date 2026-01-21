@@ -40,7 +40,6 @@ export const Navbar = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Logic: Sum up the actual unread_count from each conversation
   const unreadCount = conversations.reduce((acc, conv) => acc + (conv.unread_count || 0), 0);
 
   const handleHomeClick = () => {
@@ -132,7 +131,6 @@ export const Navbar = () => {
                     <Bell className="h-5 w-5" />
                   </Button>
                   
-                  {/* Message Button with Accurate Unread Count */}
                   <Button variant="ghost" size="icon" className="hidden md:flex relative" asChild>
                     <Link to="/messages">
                       <MessageCircle className="h-5 w-5" />
@@ -167,6 +165,13 @@ export const Navbar = () => {
                         <User className="mr-2 h-4 w-4" />
                         <span>Profile</span>
                       </DropdownMenuItem>
+
+                      {/* My Adventures Item */}
+                      <DropdownMenuItem onClick={() => navigate("/my-adventures")}>
+                        <Compass className="mr-2 h-4 w-4" />
+                        <span>My Adventures</span>
+                      </DropdownMenuItem>
+
                       <DropdownMenuItem onClick={() => setSettingsOpen(true)}>
                         <Settings className="mr-2 h-4 w-4" />
                         <span>Settings</span>

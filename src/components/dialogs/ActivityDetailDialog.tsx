@@ -52,15 +52,14 @@ export const ActivityDetailDialog = ({
   const [isLoading, setIsLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll to bottom when new messages arrive
-  const scrollToBottom = () => {
+  const scrollToBottom = useCallback(() => {
     if (scrollRef.current) {
       const scrollElement = scrollRef.current.querySelector('[data-radix-scroll-area-viewport]');
       if (scrollElement) {
         scrollElement.scrollTop = scrollElement.scrollHeight;
       }
     }
-  };
+  }, []);
 
   const fetchComments = useCallback(async () => {
     if (!activity.id || !open) return;
@@ -96,13 +95,14 @@ export const ActivityDetailDialog = ({
     } finally {
       setIsLoading(false);
     }
-  }, [activity.id, open]);
+  }, [activity.id, open, scrollToBottom]);
 
   useEffect(() => {
+    if (!open) return;
+    
     fetchComments();
 
-    // REALTIME SUBSCRIPTION
-    if (open && activity.id) {
+    if (activity.id) {
       const channel = supabase
         .channel(`activity_comments_${activity.id}`)
         .on(
@@ -114,7 +114,6 @@ export const ActivityDetailDialog = ({
             filter: `activity_id=eq.${activity.id}` 
           }, 
           async (payload) => {
-            // When a new comment is inserted, we fetch its profile data and add it to state
             const { data: profileData } = await supabase
               .from('profiles')
               .select('username, avatar_url')
@@ -140,7 +139,7 @@ export const ActivityDetailDialog = ({
         supabase.removeChannel(channel);
       };
     }
-  }, [activity.id, open, fetchComments]);
+  }, [activity.id, open, fetchComments, scrollToBottom]);
 
   const handlePostComment = async () => {
     if (!newComment.trim() || !userId) return;
@@ -155,7 +154,6 @@ export const ActivityDetailDialog = ({
     
     if (!error) {
       setNewComment("");
-      // No need to manually fetch here anymore, the Realtime listener will catch it!
     }
   };
 
@@ -167,7 +165,7 @@ export const ActivityDetailDialog = ({
             <div className="flex items-center space-x-3">
               <Avatar className="h-10 w-10">
                 <AvatarImage src={activity.avatar} />
-                <AvatarFallback>{activity.username.charAt(0)}</AvatarFallback>
+                <AvatarFallback>{(activity.username || "U").charAt(0).toUpperCase()}</AvatarFallback>
               </Avatar>
               <div>
                 <DialogTitle className="text-xl font-bold">{activity.title}</DialogTitle>
@@ -186,15 +184,17 @@ export const ActivityDetailDialog = ({
 
         <ScrollArea ref={scrollRef} className="flex-1 w-full bg-white">
           <div className="p-6 space-y-6">
-            <p className="text-sm text-muted-foreground leading-relaxed">
-              {activity.description}
-            </p>
-            
-            {activity.image && (
-              <div className="rounded-xl overflow-hidden border bg-muted">
-                <img src={activity.image} className="w-full h-auto object-cover max-h-[300px]" alt="Activity" />
-              </div>
-            )}
+            <div className="space-y-4">
+               <p className="text-sm text-muted-foreground leading-relaxed">
+                {activity.description}
+              </p>
+              
+              {activity.image && (
+                <div className="rounded-xl overflow-hidden border bg-muted">
+                  <img src={activity.image} className="w-full h-auto object-cover max-h-[300px]" alt="Activity" />
+                </div>
+              )}
+            </div>
             
             <div className="flex items-center gap-6 py-4 border-y border-border/50 text-sm">
               <span className="flex items-center gap-1.5 font-medium">
@@ -207,7 +207,7 @@ export const ActivityDetailDialog = ({
               </span>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-6">
               <h4 className="font-bold text-sm uppercase tracking-wider text-muted-foreground flex items-center gap-2">
                 <MessageCircle className="h-4 w-4" /> Discussion
               </h4>
@@ -222,25 +222,30 @@ export const ActivityDetailDialog = ({
                    <p className="text-sm text-muted-foreground">No messages yet. Be the first to say hi!</p>
                 </div>
               ) : (
-                <div className="space-y-4 pb-4">
+                <div className="space-y-6 pb-4">
                   {comments.map((c) => (
-                    <div key={c.id} className={`flex gap-3 items-start ${c.user_id === userId ? 'flex-row-reverse' : ''}`}>
-                      <Avatar className="h-8 w-8 border shrink-0">
+                    <div key={c.id} className="flex gap-4 group">
+                      <Avatar className="h-9 w-9 border shrink-0 mt-0.5">
                         <AvatarImage src={c.avatar_url} />
-                        <AvatarFallback>{c.username.charAt(0)}</AvatarFallback>
+                        <AvatarFallback>{(c.username || "U").charAt(0).toUpperCase()}</AvatarFallback>
                       </Avatar>
-                      <div className={`flex flex-col max-w-[80%] ${c.user_id === userId ? 'items-end' : 'items-start'}`}>
-                        <div className={`p-3 rounded-2xl text-sm ${
-                          c.user_id === userId 
-                            ? 'bg-primary text-primary-foreground rounded-tr-none' 
-                            : 'bg-muted/50 rounded-tl-none'
-                        }`}>
-                          {c.user_id !== userId && <p className="font-bold text-[10px] uppercase mb-1 opacity-70">{c.username}</p>}
-                          <p>{c.content}</p>
+                      <div className="flex-1 space-y-1">
+                        <div className="flex items-baseline gap-2">
+                          <span className={`text-sm font-bold ${c.user_id === userId ? 'text-primary' : 'text-foreground'}`}>
+                            {c.username}
+                            {c.user_id === userId && <span className="ml-2 text-[10px] font-normal text-muted-foreground">(You)</span>}
+                          </span>
+                          <span className="text-[10px] text-muted-foreground">
+                            {new Date(c.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
                         </div>
-                        <span className="text-[10px] text-muted-foreground mt-1">
-                          {new Date(c.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </span>
+                        <div className={`text-sm leading-relaxed p-3 rounded-lg ${
+                          c.user_id === userId 
+                            ? 'bg-primary/5 border border-primary/10' 
+                            : 'bg-muted/30'
+                        }`}>
+                          {c.content}
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -250,23 +255,29 @@ export const ActivityDetailDialog = ({
           </div>
         </ScrollArea>
 
-        <div className="p-4 border-t bg-gray-50 flex-shrink-0">
+        <div className="p-4 border-t bg-gray-50/50 flex-shrink-0">
           {!hasJoined ? (
             <div className="flex items-center justify-center gap-2 p-3 border border-dashed rounded-xl bg-white text-muted-foreground text-sm">
               <Lock className="h-4 w-4" />
               <span>Join this activity to participate in the discussion</span>
             </div>
           ) : (
-            <div className="flex gap-2">
+            <div className="flex gap-2 bg-white p-2 rounded-xl border shadow-sm">
               <Input 
                 value={newComment} 
                 onChange={(e) => setNewComment(e.target.value)} 
                 onKeyDown={(e) => e.key === 'Enter' && handlePostComment()}
-                placeholder="Write a message..." 
-                className="bg-white"
+                placeholder="Share your thoughts..." 
+                className="border-0 focus-visible:ring-0 shadow-none bg-transparent"
               />
-              <Button onClick={handlePostComment} disabled={!newComment.trim()} size="icon" className="shrink-0">
-                <Send className="h-4 w-4" />
+              <Button 
+                onClick={handlePostComment} 
+                disabled={!newComment.trim()} 
+                size="sm"
+                className="shrink-0 rounded-lg px-4"
+              >
+                <Send className="h-4 w-4 mr-2" />
+                Post
               </Button>
             </div>
           )}
