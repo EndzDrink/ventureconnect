@@ -13,7 +13,8 @@ import {
   Calendar, 
   Users, 
   Star,
-  HelpCircle 
+  HelpCircle,
+  Camera // Added for Memories
 } from "lucide-react";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -111,6 +112,12 @@ export const Navbar = () => {
                 </Link>
               </Button>
               <Button variant="ghost" size="sm" className="gap-2 text-sm" asChild>
+                <Link to="/memories">
+                  <Camera className="h-4 w-4" />
+                  <span>Memories</span>
+                </Link>
+              </Button>
+              <Button variant="ghost" size="sm" className="gap-2 text-sm" asChild>
                 <Link to="/travel-buddies">
                   <Users className="h-4 w-4" />
                   <span>Travel Buddies</span>
@@ -166,7 +173,12 @@ export const Navbar = () => {
                         <span>Profile</span>
                       </DropdownMenuItem>
 
-                      {/* My Adventures Item */}
+                      {/* Memories in Dropdown */}
+                      <DropdownMenuItem onClick={() => navigate("/memories")}>
+                        <Camera className="mr-2 h-4 w-4" />
+                        <span>Community Memories</span>
+                      </DropdownMenuItem>
+
                       <DropdownMenuItem onClick={() => navigate("/my-adventures")}>
                         <Compass className="mr-2 h-4 w-4" />
                         <span>My Adventures</span>
@@ -242,15 +254,15 @@ export const Navbar = () => {
             <span>Home</span>
           </Button>
           <Button variant="ghost" size="sm" className="flex flex-col items-center gap-1 p-2 h-auto min-h-[60px] text-xs" asChild>
-            <Link to="/deals">
-              <Tag className="h-5 w-5" />
-              <span>Deals</span>
-            </Link>
-          </Button>
-          <Button variant="ghost" size="sm" className="flex flex-col items-center gap-1 p-2 h-auto min-h-[60px] text-xs" asChild>
             <Link to="/events">
               <Calendar className="h-5 w-5" />
               <span>Events</span>
+            </Link>
+          </Button>
+          <Button variant="ghost" size="sm" className="flex flex-col items-center gap-1 p-2 h-auto min-h-[60px] text-xs" asChild>
+            <Link to="/memories">
+              <Camera className="h-5 w-5" />
+              <span>Memories</span>
             </Link>
           </Button>
           <Button variant="ghost" size="sm" className="flex flex-col items-center gap-1 p-2 h-auto min-h-[60px] text-xs" asChild>

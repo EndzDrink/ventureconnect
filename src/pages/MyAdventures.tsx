@@ -3,69 +3,74 @@ import { supabase } from "@/integrations/supabase/client";
 import { ActivityCard } from "@/components/activities/ActivityCard";
 import { useAuth } from "@/hooks/useAuth";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, Calendar } from "lucide-react";
+import { Loader2, Calendar, History } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function MyAdventures() {
   const { user } = useAuth();
-  const [joinedActivities, setJoinedActivities] = useState<any[]>([]);
+  const [activities, setActivities] = useState<{ upcoming: any[], past: any[] }>({ upcoming: [], past: [] });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchMyActivities = async () => {
-      if (!user) return;
-      setLoading(true);
-      
-      try {
-        const { data, error } = await supabase
-          .from('activity_participants' as any)
-          .select(`
-            activity_id,
-            activities (
-              *,
-              profiles:user_id (
-                username,
-                avatar_url
+        if (!user) return;
+        setLoading(true);
+        
+        try {
+          const { data, error } = await supabase
+            .from('activity_participants' as any)
+            .select(`
+              activity_id,
+              activities (
+                *,
+                profiles!activities_creator_id_fkey1 (
+                  username,
+                  avatar_url
+                )
               )
-            )
-          `)
-          .eq('user_id', user.id);
-
-        if (error) throw error;
-
-        if (data) {
-          // Get the start of today to ensure we include events happening later today
-          const startOfToday = new Date();
-          startOfToday.setHours(0, 0, 0, 0);
-
-          const formatted = data
-            .map((item: any) => {
+            `)
+            .eq('user_id', user.id); // 'user_id' is correct here as it refers to the participant
+      
+          if (error) throw error;
+      
+          if (data) {
+            const startOfToday = new Date();
+            startOfToday.setHours(0, 0, 0, 0);
+      
+            const upcoming: any[] = [];
+            const past: any[] = [];
+      
+            data.forEach((item: any) => {
               const act = item.activities;
-              if (!act) return null;
-              
-              // 1. Convert the activity date string to a Date object
+              if (!act) return;
+      
               const activityDate = new Date(act.date);
               
-              // 2. Filter out past events: If activity date is before today, hide it
-              if (activityDate < startOfToday) return null;
-
-              return {
+              // Handle joined profile data
+              const profile = Array.isArray(act.profiles) ? act.profiles[0] : act.profiles;
+      
+              const formattedActivity = {
                 ...act,
-                username: act.profiles?.username || 'User',
-                avatar: act.profiles?.avatar_url || '',
+                username: profile?.username || 'User',
+                avatar: profile?.avatar_url || '',
                 date: act.date || 'Date TBD'
               };
-            })
-            .filter(Boolean); 
-          
-          setJoinedActivities(formatted);
+      
+              if (activityDate < startOfToday) {
+                past.push(formattedActivity);
+              } else {
+                upcoming.push(formattedActivity);
+              }
+            });
+            
+            setActivities({ upcoming, past });
+          }
+        } catch (err) {
+          console.error("Error fetching joined adventures:", err);
+        } finally {
+          setLoading(false);
         }
-      } catch (err) {
-        console.error("Error fetching joined adventures:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
+      };
     fetchMyActivities();
   }, [user]);
 
@@ -86,33 +91,56 @@ export default function MyAdventures() {
           My Adventures
         </h1>
         <p className="text-muted-foreground mt-2">
-          Keep track of your upcoming experiences.
+          Manage your upcoming trips and relive past memories.
         </p>
       </header>
 
-      {joinedActivities.length === 0 ? (
-        <div className="text-center py-32 border-2 border-dashed rounded-3xl bg-muted/20">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-muted mb-4">
-            <Calendar className="h-8 w-8 text-muted-foreground" />
-          </div>
-          <h3 className="text-lg font-semibold">No upcoming adventures</h3>
-          <p className="text-muted-foreground max-w-xs mx-auto mt-2">
-            Past events are hidden. Explore the feed to join new activities!
-          </p>
-        </div>
-      ) : (
-        <ScrollArea className="h-full">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 pb-10">
-            {joinedActivities.map((activity) => (
-              <ActivityCard 
-                key={activity.id} 
-                userId={user?.id || ""} 
-                {...activity} 
-              />
-            ))}
-          </div>
-        </ScrollArea>
-      )}
+      <Tabs defaultValue="upcoming" className="w-full">
+        <TabsList className="grid w-full max-w-md grid-cols-2 mb-8">
+          <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
+          <TabsTrigger value="past">History & Memories</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="upcoming">
+          {activities.upcoming.length === 0 ? (
+            <div className="text-center py-20 border-2 border-dashed rounded-3xl bg-muted/20">
+              <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-lg font-semibold">No upcoming adventures</h3>
+              <p className="text-muted-foreground mt-2">Explore the feed to find your next experience!</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 pb-10">
+              {activities.upcoming.map((activity) => (
+                <ActivityCard 
+                  key={activity.id} 
+                  userId={user?.id || ""} 
+                  {...activity} 
+                />
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="past">
+          {activities.past.length === 0 ? (
+            <div className="text-center py-20 border-2 border-dashed rounded-3xl bg-muted/20">
+              <History className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-lg font-semibold">No past adventures yet</h3>
+              <p className="text-muted-foreground mt-2">Once you complete an adventure, it will appear here.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 pb-10">
+              {activities.past.map((activity) => (
+                <ActivityCard 
+                  key={activity.id} 
+                  userId={user?.id || ""} 
+                  {...activity} 
+                />
+              ))}
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

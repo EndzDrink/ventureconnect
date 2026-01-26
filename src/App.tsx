@@ -1,46 +1,40 @@
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import React, { useEffect, useState } from 'react';
-// Import QueryClient and QueryClientProvider to fix "No QueryClient set" error
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'; 
 
-// Using absolute paths for all internal imports to resolve compilation errors
 import { Toaster } from "@/components/ui/toaster"; 
 import { Toaster as Sonner } from "@/components/ui/sonner"; 
 import { TooltipProvider } from "@/components/ui/tooltip"; 
 
-// Authentication and Context
 import { AuthProvider, useAuth } from "@/hooks/useAuth"; 
 import RedirectIfAuthenticated from "@/components/RedirectIfAuthenticated"; 
 
-// Page Imports
 import Index from "@/pages/Index";
 import Deals from "@/pages/Deals";
 import Events from "@/pages/Events";
 import TravelBuddies from "@/pages/TravelBuddies";
 import FeaturedPartners from "@/pages/FeaturedPartners";
-import MyAdventures from "@/pages/MyAdventures"; // New Step 3 Import
+import MyAdventures from "@/pages/MyAdventures";
+import Memories from "@/pages/Memories"; // New Import for Community Feed
 import NotFound from "@/pages/NotFound";
 import Login from "@/pages/Login";
 import Signup from "@/pages/Signup";
 import SearchResults from "@/pages/SearchResults"; 
 import Messages from "./pages/Messages";
-// Note: This import should resolve the "Settings is not defined" error if it was a scoping issue here.
 import Settings from "@/components/settings/SettingsDialog";
 
 import NavBar from "@/components/layout/Navbar"; 
 
-// Initialize Query Client once outside the component
 const queryClient = new QueryClient();
 
 // --- Types ---
 
-// Define a base interface for all pages that require the authenticated userId
 interface PageProps {
   userId: string;
 }
 
 interface ProtectedRouteProps {
-  element: React.ReactElement<PageProps>; // Specify that the element must accept PageProps
+  element: React.ReactElement<PageProps>; 
   userId?: string; 
 }
 
@@ -50,12 +44,6 @@ interface NavLayoutProps {
 
 // --- Protected Route Component ---
 
-/**
- * A wrapper component that checks for authentication status.
- * If authenticated, it renders the protected element.
- * If not authenticated, it redirects to the login page.
- * It also injects the current userId into the protected element.
- */
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ element }) => {
   const { user, loading } = useAuth() as any; 
   
@@ -87,7 +75,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ element }) => {
         return (
             <div className="flex flex-col items-center justify-center min-h-screen p- text-center text-red-600">
                 <h2 className="text-2xl font-bold mb-4">Authentication Initialization Error</h2>
-                <p className="text-lg">The authentication service failed to initialize within 5 seconds. Please check your network connection.</p>
+                <p className="text-lg">The authentication service failed to initialize within 5 seconds.</p>
             </div>
         );
     }
@@ -123,7 +111,8 @@ const DealsPage: React.FC<PageProps> = (props) => <Deals {...props} />;
 const EventsPage: React.FC<PageProps> = (props) => <Events {...props} />;
 const TravelBuddiesPage: React.FC<PageProps> = (props) => <TravelBuddies {...props} />;
 const FeaturedPartnersPage: React.FC<PageProps> = (props) => <FeaturedPartners {...props} />;
-const MyAdventuresPage: React.FC<PageProps> = (props) => <MyAdventures />; // Step 3 Wrapper
+const MyAdventuresPage: React.FC<PageProps> = (props) => <MyAdventures />;
+const MemoriesPage: React.FC<PageProps> = (props) => <Memories />; // Memories Wrapper
 const SearchResultsPage: React.FC<PageProps> = (props) => <SearchResults {...props} />;
 
 
@@ -154,8 +143,10 @@ const App: React.FC = () => {
               <Route path="/travel-buddies" element={<NavLayout><ProtectedRoute element={<TravelBuddiesPage userId={""} />} /></NavLayout>} />
               <Route path="/messages" element={<NavLayout><ProtectedRoute element={<MessagesPage userId={""} />} /></NavLayout>} />
               
-              {/* Step 3: My Adventures Route */}
               <Route path="/my-adventures" element={<NavLayout><ProtectedRoute element={<MyAdventuresPage userId={""} />} /></NavLayout>} />
+              
+              {/* Memories Route */}
+              <Route path="/memories" element={<NavLayout><ProtectedRoute element={<MemoriesPage userId={""} />} /></NavLayout>} />
               
               <Route path="/featured-partners" element={<NavLayout><ProtectedRoute element={<FeaturedPartnersPage userId={""} />} /></NavLayout>} />
               

@@ -2,9 +2,10 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Heart, MessageCircle, MapPin, Calendar, AlertTriangle } from "lucide-react";
+import { Heart, MessageCircle, MapPin, Calendar, AlertTriangle, Camera } from "lucide-react";
 import { JoinActivityDialog } from "../dialogs/JoinActivityDialog"; 
 import { ActivityDetailDialog } from "../dialogs/ActivityDetailDialog";
+import { PostMemoryDialog } from "./PostMemoryDialog"; // New Import
 import {
   AlertDialog,
   AlertDialogAction,
@@ -15,10 +16,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { useState, useEffect, useCallback } from "react"; 
+import { useState, useEffect, useCallback, useMemo } from "react"; 
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../integrations/supabase/client"; 
+import { isPast, parseISO, startOfDay } from "date-fns";
 
 interface ActivityCardProps {
   id: string;
@@ -63,6 +65,19 @@ export const ActivityCard = ({
   const { toast } = useToast();
   const navigate = useNavigate();
   const isAuthenticated = !!userId;
+
+  /**
+   * Logic Check: Is the activity in the past?
+   * We use startOfDay to ensure that the button appears once the day of the event begins.
+   */
+  const isPastEvent = useMemo(() => {
+    try {
+      const eventDate = parseISO(date);
+      return isPast(eventDate) || eventDate.toDateString() === new Date().toDateString();
+    } catch (e) {
+      return false;
+    }
+  }, [date]);
 
   const refreshCounts = useCallback(async () => {
     if (!id) return;
@@ -241,7 +256,12 @@ export const ActivityCard = ({
               </div>
             </div>
 
-            <div className="flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-2 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+              {/* Conditional Rendering: Only show Post Memory if event is past AND user is joined */}
+              {isPastEvent && isJoined && (
+                <PostMemoryDialog activityId={id} activityTitle={title} />
+              )}
+
               {isJoined ? (
                 <Button 
                   size="sm" 
@@ -277,7 +297,6 @@ export const ActivityCard = ({
         isLiked={isLiked}
       />
 
-      {/* Confirmation Alert for Leaving */}
       <AlertDialog open={showLeaveAlert} onOpenChange={setShowLeaveAlert}>
         <AlertDialogContent>
           <AlertDialogHeader>
