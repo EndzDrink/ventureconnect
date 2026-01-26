@@ -197,10 +197,10 @@ export const CreateActivityDialog = ({ children }: CreateActivityDialogProps) =>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="hiking">Hiking</SelectItem>
-                  <SelectItem value="food">Food & Drinks</SelectItem>
+                  <SelectItem value="food">Food & Beverages</SelectItem>
                   <SelectItem value="water-sports">Water Sports</SelectItem>
-                  <SelectItem value="culture">Culture & Arts</SelectItem>
-                  <SelectItem value="nightlife">Nightlife</SelectItem>
+                  <SelectItem value="culture">Arts & Culture</SelectItem>
+                  <SelectItem value="nightlife">Social</SelectItem>
                   <SelectItem value="adventure">Adventure</SelectItem>
                   <SelectItem value="sightseeing">Sightseeing</SelectItem>
                 </SelectContent>

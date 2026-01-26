@@ -192,7 +192,7 @@ export const ActivityCard = ({
             <div className="flex items-center space-x-3">
               <Avatar className="h-12 w-12 border-2 border-background">
                 <AvatarImage src={avatar} />
-                <AvatarFallback>{username?.charAt(0).toUpperCase()}</AvatarFallback>
+                <AvatarFallback>{(username || "U").charAt(0).toUpperCase()}</AvatarFallback>
               </Avatar>
               <div>
                 <p className="font-semibold text-card-foreground">{username}</p>

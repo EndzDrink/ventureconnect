@@ -15,7 +15,7 @@ import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { AlertTriangle, Save, Shield, Bell, Eye, User } from 'lucide-react';
-import { Textarea } from "@/components/ui/textarea"; // Assuming you have this or need to define it
+import { Textarea } from "@/components/ui/textarea"; 
 
 // Define the shape of the data we expect from the profiles table
 interface UserProfile {
@@ -112,13 +112,6 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
         
       if (profileError) throw profileError;
 
-      // 2. Optionally, update the auth metadata (e.g., if full_name is also stored there)
-      /* const { error: authError } = await supabase.auth.updateUser({
-        data: { full_name: profileData.full_name }
-      });
-      if (authError) throw authError;
-      */
-      
       toast({
         title: "Profile updated",
         description: "Your public profile details have been saved successfully.",
@@ -203,7 +196,7 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
                 <Separator />
                 <h4 className="font-semibold mt-6 mb-3 text-sm text-gray-700">Travel Buddy Profile Details</h4>
                 
-                {/* New Profile Fields */}
+                {/* Profile Fields */}
                 <div>
                   <Label htmlFor="full_name">Full Name (Public)</Label>
                   <Input 

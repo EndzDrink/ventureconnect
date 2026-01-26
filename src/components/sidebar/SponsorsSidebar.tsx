@@ -167,7 +167,6 @@ export const SponsorsSidebar = () => {
         </CardContent>
       </Card>
 
-      {/* Ad Space */}
       <Card className="bg-gradient-to-br from-accent/20 to-accent/5">
         <CardContent className="p-4 text-center">
           <div className="text-4xl mb-2">🌍</div>
