@@ -71,7 +71,7 @@ const TravelBuddies: React.FC<TravelBuddiesPageProps> = ({ userId }) => {
         <div className="mb-8">
           <div className="flex items-center gap-3 mb-2">
             <Users className="h-8 w-8 text-primary" />
-            <h1 className="text-3xl font-bold">Travel Buddies</h1>
+            <h1 className="text-lg md:text-xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">Travel Buddies</h1>
           </div>
           <p className="text-gray-500 text-lg">
             Connect with your accepted partners and plan your next trip.

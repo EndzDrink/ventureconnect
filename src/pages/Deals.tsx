@@ -91,15 +91,12 @@ const Deals: React.FC<DealsPageProps> = ({ userId }) => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* NavBar is now handled by the NavLayout wrapper in App.tsx */}
-      
-      <div className="pt-8 pb-20 lg:pb-0">
+    <div className="min-h-screen bg-background pb-20">
         <div className="container mx-auto px-4 py-8">
           <div className="mb-8">
-            <div className="flex items-center gap-3 mb-4">
+            <div className="flex items-center gap-3 mb-2">
               <Tag className="h-8 w-8 text-primary" />
-              <h1 className="text-3xl font-bold">Travel Deals</h1>
+              <h1 className="text-lg md:text-xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">Travel Deals</h1>
             </div>
             <p className="text-muted-foreground text-lg">
               Discover amazing travel deals and save big on your next adventure
@@ -233,7 +230,6 @@ const Deals: React.FC<DealsPageProps> = ({ userId }) => {
             </div>
           )}
         </div>
-      </div>
     </div>
   );
 };

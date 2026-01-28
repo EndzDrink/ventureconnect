@@ -118,7 +118,7 @@ export const ActivitiesFeed = ({ userId }: { userId: string }) => {
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <h2 className="text-2xl font-bold text-foreground">Discover Adventures</h2>
+        <h2 className="text-lg md:text-xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">Discover Adventures</h2>
         
         <div className="flex items-center gap-3">
           {/* View Mode Toggle */}

@@ -69,8 +69,8 @@ export const SponsorsSidebar = () => {
           className="pb-3 cursor-pointer group flex flex-row items-center justify-between" 
           onClick={() => navigate("/featured-partners")}
         >
-          <CardTitle className="text-lg flex items-center gap-2 group-hover:text-primary transition-colors">
-            <Star className="h-5 w-5 text-primary" />
+          <CardTitle className="text-lg flex items-center gap-2 text-lg md:text-xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent group-hover:text-primary transition-colors">
+            <Star className="text-lg md:text-xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent" />
             Featured Partners
           </CardTitle>
           <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:translate-x-1 transition-transform" />
@@ -123,7 +123,7 @@ export const SponsorsSidebar = () => {
           className="pb-3 cursor-pointer group flex flex-row items-center justify-between" 
           onClick={() => navigate("/deals")}
         >
-          <CardTitle className="text-lg flex items-center gap-2 group-hover:text-primary transition-colors">
+          <CardTitle className="text-lg flex items-center gap-2 text-lg md:text-xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent group-hover:text-primary transition-colors">
             <Clock className="h-5 w-5 text-primary" />
             Limited Deals
           </CardTitle>

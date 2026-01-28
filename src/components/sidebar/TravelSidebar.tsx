@@ -34,7 +34,7 @@ export const TravelSidebar = () => {
             className="pb-3 cursor-pointer group flex flex-row items-center justify-between" 
             onClick={() => navigate("/events")}
           >
-            <CardTitle className="text-lg text-card-foreground group-hover:text-primary transition-colors">
+            <CardTitle className="text-lg text-card-foreground text-lg md:text-xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent group-hover:text-primary transition-colors">
               Upcoming Adventures
             </CardTitle>
             <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:translate-x-1 transition-transform" />
@@ -65,7 +65,7 @@ export const TravelSidebar = () => {
             className="pb-3 cursor-pointer group flex flex-row items-center justify-between" 
             onClick={() => navigate("/travel-buddies")}
           >
-            <CardTitle className="text-lg text-card-foreground group-hover:text-primary transition-colors">
+            <CardTitle className="text-lg text-card-foreground text-lg md:text-xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent group-hover:text-primary transition-colors">
               Travel Buddies
             </CardTitle>
             <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:translate-x-1 transition-transform" />
@@ -99,7 +99,7 @@ export const TravelSidebar = () => {
         {/* Achievements (Static) */}
         <Card className="bg-card/50 backdrop-blur supports-[backdrop-filter]:bg-card/50">
           <CardHeader className="pb-3">
-            <CardTitle className="text-lg text-card-foreground">Achievements</CardTitle>
+            <CardTitle className="text-lg text-card-foreground text-lg md:text-xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">Achievements</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             {achievements.map((achievement, index) => {

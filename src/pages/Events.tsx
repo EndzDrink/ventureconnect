@@ -1,7 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar, MapPin, Users, Clock } from "lucide-react";
+import { PartyPopper, MapPin, Users, Clock } from "lucide-react";
 
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../integrations/supabase/client'; 
@@ -85,14 +85,12 @@ const Events: React.FC<EventsPageProps> = ({ userId }) => {
   const eventsData = events || [];
 
   return (
-    <div className="min-h-screen bg-background">
-      
-      <div className="pt-8 pb-20 lg:pb-0">
+    <div className="min-h-screen bg-background pb-20">
         <div className="container mx-auto px-4 py-8">
           <div className="mb-8">
-            <div className="flex items-center gap-3 mb-4">
-              <Calendar className="h-8 w-8 text-primary" />
-              <h1 className="text-3xl font-bold">Travel Events</h1>
+            <div className="flex items-center gap-3 mb-2">
+              <PartyPopper className="h-8 w-8 text-primary" />
+              <h1 className="text-lg md:text-xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">Travel Events</h1>
             </div>
             <p className="text-muted-foreground text-lg">
               Join exciting travel events and meet like-minded adventurers
@@ -139,7 +137,7 @@ const Events: React.FC<EventsPageProps> = ({ userId }) => {
                     
                     <div className="space-y-2 mt-4 border-t pt-4">
                       <div className="flex items-center gap-2">
-                        <Calendar className="h-4 w-4 text-primary" />
+                        <PartyPopper className="h-4 w-4 text-primary" />
                         <span className="text-sm font-medium">{date}</span>
                       </div>
                       
@@ -180,12 +178,11 @@ const Events: React.FC<EventsPageProps> = ({ userId }) => {
           {/* Show a message if no events are found */}
           {eventsData.length === 0 && !isLoading && (
             <div className="text-center mt-10 p-10 text-muted-foreground border border-dashed rounded-xl">
-              <Calendar className="h-6 w-6 mx-auto mb-3" />
+              <PartyPopper className="h-6 w-6 mx-auto mb-3" />
               <p>No events currently scheduled. Check back soon!</p>
             </div>
           )}
         </div>
-      </div>
     </div>
   );
 };

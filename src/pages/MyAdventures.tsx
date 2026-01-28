@@ -84,16 +84,20 @@ export default function MyAdventures() {
   }
 
   return (
-    <div className="container max-w-7xl mx-auto py-8 px-4 space-y-6">
-      <header className="mb-8">
-        <h1 className="text-3xl font-bold flex items-center gap-3">
-          <Calendar className="text-primary h-8 w-8" /> 
-          My Adventures
-        </h1>
+    <div className="min-h-screen bg-background pb-20">
+      <div className="container mx-auto px-4 py-8">
+
+         <div className="mb-8"> 
+            <div className="flex items-center gap-3 mb-2">
+             <Calendar className="text-primary h-8 w-8" /> 
+                 <h1 className="text-lg md:text-xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+                My Adventures
+                 </h1>
+            </div>
         <p className="text-muted-foreground mt-2">
           Manage your upcoming trips and relive past memories.
         </p>
-      </header>
+      </div>
 
       <Tabs defaultValue="upcoming" className="w-full">
         <TabsList className="grid w-full max-w-md grid-cols-2 mb-8">
@@ -141,6 +145,7 @@ export default function MyAdventures() {
           )}
         </TabsContent>
       </Tabs>
+      </div>
     </div>
   );
 }

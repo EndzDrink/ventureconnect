@@ -10,7 +10,7 @@ import {
   Search, 
   Home,
   Tag,
-  Calendar, 
+  PartyPopper, 
   Users, 
   Star,
   HelpCircle,
@@ -107,7 +107,7 @@ export const Navbar = () => {
               </Button>
               <Button variant="ghost" size="sm" className="gap-2 text-sm" asChild>
                 <Link to="/events">
-                  <Calendar className="h-4 w-4" />
+                  <PartyPopper className="h-4 w-4" />
                   <span>Events</span>
                 </Link>
               </Button>
@@ -255,7 +255,7 @@ export const Navbar = () => {
           </Button>
           <Button variant="ghost" size="sm" className="flex flex-col items-center gap-1 p-2 h-auto min-h-[60px] text-xs" asChild>
             <Link to="/events">
-              <Calendar className="h-5 w-5" />
+              <PartyPopper className="h-5 w-5" />
               <span>Events</span>
             </Link>
           </Button>
