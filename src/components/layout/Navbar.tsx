@@ -91,41 +91,41 @@ export const Navbar = () => {
             </form>
 
             <Button variant="ghost" size="icon" className="sm:hidden" onClick={() => setIsMobileSearchOpen(true)}>
-              <Search className="h-5 w-5" />
+              <Search className="h-5 w-5 text-primary" />
             </Button>
 
-            <div className="hidden xl:flex items-center gap-1">
+            <div className="hidden xl:flex items-center gap-1 text-lg md:text-xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
               <Button variant="ghost" size="sm" className="gap-2 text-sm" onClick={handleHomeClick}>
-                <Home className="h-4 w-4" />
+                <Home className="h-4 w-4 text-primary" />
                 <span>Home</span>
               </Button>
               <Button variant="ghost" size="sm" className="gap-2 text-sm" asChild>
                 <Link to="/deals">
-                  <Tag className="h-4 w-4" />
+                  <Tag className="h-4 w-4 text-primary" />
                   <span>Deals</span>
                 </Link>
               </Button>
               <Button variant="ghost" size="sm" className="gap-2 text-sm" asChild>
                 <Link to="/events">
-                  <PartyPopper className="h-4 w-4" />
+                  <PartyPopper className="h-4 w-4 text-primary" />
                   <span>Events</span>
                 </Link>
               </Button>
               <Button variant="ghost" size="sm" className="gap-2 text-sm" asChild>
                 <Link to="/memories">
-                  <Camera className="h-4 w-4" />
+                  <Camera className="h-4 w-4 text-primary" />
                   <span>Memories</span>
                 </Link>
               </Button>
               <Button variant="ghost" size="sm" className="gap-2 text-sm" asChild>
                 <Link to="/travel-buddies">
-                  <Users className="h-4 w-4" />
+                  <Users className="h-4 w-4 text-primary" />
                   <span>Travel Buddies</span>
                 </Link>
               </Button>
               <Button variant="ghost" size="sm" className="gap-2 text-sm" asChild>
                 <Link to="/featured-partners">
-                  <Star className="h-4 w-4" />
+                  <Star className="h-4 w-4 text-primary" />
                   <span>Featured Partners</span>
                 </Link>
               </Button>

@@ -127,7 +127,7 @@ export const CreateActivityDialog = ({ children }: CreateActivityDialogProps) =>
       <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Create New Adventure</DialogTitle>
+          <DialogTitle className="text-lg md:text-xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">Create New Adventure</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Title & Category */}

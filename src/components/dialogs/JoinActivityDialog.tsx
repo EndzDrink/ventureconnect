@@ -68,7 +68,7 @@ export const JoinActivityDialog = ({
       <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent className="flex flex-col max-w-md max-h-[90vh] p-0">
         <DialogHeader className="p-6 pb-2 border-b border-border/50 flex-shrink-0">
-          <DialogTitle>Join {activityTitle}</DialogTitle>
+          <DialogTitle className="text-lg md:text-xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">Join {activityTitle}</DialogTitle>
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto p-6">
