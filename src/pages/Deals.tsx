@@ -128,97 +128,90 @@ const Deals: React.FC<DealsPageProps> = ({ userId }) => {
               const hasPrice = originalPrice > 0 || discountPrice > 0;
               
               return (
-                <Card key={deal.id} className="relative overflow-hidden hover:shadow-lg transition-shadow duration-200">
-                  
-                  {/* --- IMAGE BLOCK --- */}
-                  <div className="h-48 overflow-hidden">
-                    <img 
-                      src={imageUrl} 
-                      alt={`Image for ${title}`} 
-                      className="w-full h-full object-cover transition-transform duration-300 hover:scale-[1.03]"
-                      // Fallback image in case the URL is invalid or the image fails to load
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).onerror = null; // prevents infinite loop
-                        (e.target as HTMLImageElement).src = `https://placehold.co/600x400/1e293b/ffffff?text=Image+Missing`;
-                      }}
-                    />
-                  </div>
-                  {/* --- END IMAGE BLOCK --- */}
-                  
-                  {isUrgent && (
-                    <div className="absolute top-4 right-4 z-10">
-                      <Badge variant="destructive" className="gap-1 font-semibold text-xs py-1 px-2 shadow-md">
-                        <Clock className="h-3 w-3" />
-                        {timeLeft}
-                      </Badge>
-                    </div>
-                  )}
-                  
-                  <CardHeader className="space-y-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <CardTitle className="text-xl mb-2 leading-tight">{title}</CardTitle>
-                        <CardDescription className="text-sm">
-                          {description}
-                        </CardDescription>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center gap-4 text-sm">
-                      <div className="flex items-center gap-1">
-                        <MapPin className="h-4 w-4 text-primary" />
-                        <span className="text-muted-foreground">{location}</span>
-                      </div>
-                      
-                      <div className="flex items-center gap-1">
-                        {/* We use Math.min(5, rating) just in case the rating field exceeds 5 */}
-                        {Array.from({ length: Math.round(Math.min(5, rating)) }).map((_, i) => (
-                           <Star key={i} className="h-4 w-4 fill-amber-500 text-amber-500" />
-                        ))}
-                        <span className="font-semibold">{rating.toFixed(1)}</span>
-                        <span className="text-muted-foreground">({reviews})</span>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  
-                  {/* Only render CardContent if price data exists */}
-                  {hasPrice && (
-                    <CardContent className="pt-4">
-                      <div className="flex items-center justify-between border-t pt-4">
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            <span className="text-3xl font-extrabold text-primary">
-                              {formatCurrency(discountPrice)}
-                            </span>
-                            {discountPercent > 0 && (
-                              <Badge className="bg-green-500 hover:bg-green-600 text-white font-bold text-sm">
-                                -{discountPercent}% OFF
-                              </Badge>
-                            )}
-                          </div>
-                          {originalPrice > discountPrice && (
-                            <span className="text-sm text-muted-foreground line-through">
-                              {formatCurrency(originalPrice)}
-                            </span>
-                          )}
-                        </div>
-                        
-                        <Button className="ml-4 bg-accent hover:bg-accent/90 text-accent-foreground font-semibold shadow-md">
-                          Book Now
-                        </Button>
-                      </div>
-                    </CardContent>
-                  )}
-                  {!hasPrice && (
-                      <CardContent className="pt-4">
-                          <div className="flex items-center justify-end border-t pt-4">
-                              <Button className="ml-4 bg-accent hover:bg-accent/90 text-accent-foreground font-semibold shadow-md">
-                                  Inquire Now
-                              </Button>
-                          </div>
-                      </CardContent>
-                  )}
-                </Card>
+                <Card key={deal.id} className="group relative overflow-hidden border-none shadow-xl bg-white rounded-[2rem] transition-all duration-300 hover:shadow-2xl hover:-translate-y-1">
+  
+  {/* --- IMAGE BLOCK --- */}
+  <div className="relative h-64 overflow-hidden">
+    <img 
+      src={imageUrl} 
+      alt={`Image for ${title}`} 
+      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+      onError={(e) => {
+        (e.target as HTMLImageElement).onerror = null;
+        (e.target as HTMLImageElement).src = `https://placehold.co/600x400/1e293b/ffffff?text=Image+Missing`;
+      }}
+    />
+    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+    
+    {/* Urgency Badge */}
+    {isUrgent && (
+      <div className="absolute top-4 left-4 z-10">
+        <Badge className="bg-red-500 hover:bg-red-600 border-none text-[10px] font-black uppercase px-3 py-1 shadow-lg animate-pulse">
+          <Clock className="h-3 w-3 mr-1" /> {timeLeft}
+        </Badge>
+      </div>
+    )}
+
+    {/* Rating Tag */}
+    <div className="absolute top-4 right-4 z-10">
+      <div className="bg-white/20 backdrop-blur-md border border-white/30 rounded-full px-3 py-1 flex items-center gap-1">
+        <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
+        <span className="text-xs font-bold text-white">{rating.toFixed(1)}</span>
+      </div>
+    </div>
+
+    {/* Discount Floating Tag */}
+    {discountPercent > 0 && (
+      <div className="absolute bottom-4 left-4 z-10">
+        <div className="bg-primary text-white font-black text-xs px-4 py-1 rounded-full shadow-lg">
+          {discountPercent}% OFF
+        </div>
+      </div>
+    )}
+  </div>
+  
+  <CardHeader className="pt-6 space-y-2">
+    <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-primary">
+      <MapPin className="h-3 w-3" />
+      {location}
+    </div>
+    <div>
+      <CardTitle className="text-2xl font-bold text-slate-800 leading-tight mb-1">{title}</CardTitle>
+      <CardDescription className="text-sm line-clamp-2 text-slate-500 italic">
+        {description}
+      </CardDescription>
+    </div>
+  </CardHeader>
+  
+  <CardContent className="pb-8">
+    <div className="flex items-center justify-between bg-slate-50 p-4 rounded-2xl border border-slate-100 transition-colors group-hover:bg-slate-100/50">
+      <div className="flex flex-col">
+        {hasPrice ? (
+          <>
+            {originalPrice > discountPrice && (
+              <span className="text-xs text-slate-400 line-through font-bold">
+                {formatCurrency(originalPrice)}
+              </span>
+            )}
+            <span className="text-2xl font-black text-slate-900 tracking-tighter">
+              {formatCurrency(discountPrice)}
+            </span>
+          </>
+        ) : (
+          <span className="text-lg font-black text-slate-900 uppercase tracking-tight">Exclusive</span>
+        )}
+      </div>
+      
+      <Button className="bg-primary hover:bg-primary/90 text-white font-black uppercase text-xs rounded-xl px-6 h-12 shadow-[0_10px_20px_-10px_rgba(234,88,12,0.5)] transition-all group-hover:px-8">
+        {hasPrice ? "Book Now" : "Inquire"}
+      </Button>
+    </div>
+  </CardContent>
+
+  {/* Visual "Ticket" Cut-outs */}
+  <div className="absolute left-[-10px] top-[60%] h-5 w-5 bg-background rounded-full border-r border-slate-100 shadow-inner" />
+  <div className="absolute right-[-10px] top-[60%] h-5 w-5 bg-background rounded-full border-l border-slate-100 shadow-inner" />
+</Card>
               );
             })}
           </div>

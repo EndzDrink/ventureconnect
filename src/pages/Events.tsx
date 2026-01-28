@@ -119,58 +119,105 @@ const Events: React.FC<EventsPageProps> = ({ userId }) => {
               // Key needs to be a stable string/number. Use id but safely handle null/undefined.
               const key = event.id ? String(event.id) : title; 
               
-              return (
-                <Card key={key} className="overflow-hidden hover:shadow-lg transition-shadow duration-200">
-                  <CardHeader>
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <Badge variant="outline" className="text-primary border-primary/20">{category}</Badge>
-                          <Badge variant="secondary" className="bg-muted text-muted-foreground border-border">{difficulty}</Badge>
-                        </div>
-                        <CardTitle className="text-xl mb-2 leading-tight">{title}</CardTitle>
-                        <CardDescription className="text-sm">
-                          {description}
-                        </CardDescription>
-                      </div>
+          return (
+            <Card key={key} className="group relative overflow-hidden border-none shadow-xl bg-white rounded-[2rem] transition-all duration-300 hover:shadow-2xl hover:-translate-y-1">
+              <div className="relative h-56 overflow-hidden">
+                <img 
+                  src={`https://images.unsplash.com/photo-1523580494863-6f3031224c94?q=80&w=800&auto=format&fit=crop`} // Replace with event.image_url if added to DB
+                  alt={title} 
+                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                />
+                
+                {/* Dark Overlay for text readability */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                
+                {/* Category & Difficulty Badges */}
+                <div className="absolute top-4 left-4 flex gap-2 z-10">
+                  <Badge className="bg-primary/90 hover:bg-primary border-none text-[10px] font-black uppercase tracking-tighter px-3">
+                    {category}
+                  </Badge>
+                  <Badge className="bg-white/20 backdrop-blur-md border-white/30 text-white text-[10px] font-bold uppercase px-3">
+                    {difficulty}
+                  </Badge>
+                </div>
+
+                {/* Spots Remaining Counter (Floating) */}
+                {!isFull && (
+                  <div className="absolute top-4 right-4 z-10">
+                    <div className="bg-orange-500 text-white text-[10px] font-black px-2 py-1 rounded-lg shadow-lg animate-pulse">
+                      ONLY {spotsLeft} SPOTS LEFT
                     </div>
-                    
-                    <div className="space-y-2 mt-4 border-t pt-4">
-                      <div className="flex items-center gap-2">
-                        <PartyPopper className="h-4 w-4 text-primary" />
-                        <span className="text-sm font-medium">{date}</span>
-                      </div>
-                      
-                      <div className="flex items-center gap-2">
-                        <Clock className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm">{time}</span>
-                      </div>
-                      
-                      <div className="flex items-center gap-2">
-                        <MapPin className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm">{location}</span>
-                      </div>
-                      
-                      <div className="flex items-center justify-between gap-4">
-                        <div className="flex items-center gap-2">
-                          <Users className="h-4 w-4 text-muted-foreground" />
-                          <span className="text-sm font-semibold">{participants} / {maxParticipants} joined</span>
-                        </div>
-                        {spotsLeft > 0 && <Badge className="bg-yellow-500/10 text-yellow-600 font-semibold">{spotsLeft} spots left</Badge>}
-                        {isFull && <Badge variant="destructive">Full</Badge>}
-                      </div>
+                  </div>
+                )}
+
+                {/* Bottom Image Overlay: Date & Location */}
+                <div className="absolute bottom-4 left-4 right-4 flex items-end justify-between z-10">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-1.5 text-white/90">
+                      <Clock className="h-3.5 w-3.5 text-primary" />
+                      <span className="text-xs font-black uppercase tracking-widest">{date} • {time}</span>
                     </div>
-                  </CardHeader>
+                    <div className="flex items-center gap-1.5 text-white">
+                      <MapPin className="h-4 w-4 text-primary" />
+                      <span className="text-sm font-bold truncate max-w-[180px]">{location}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* --- CONTENT BLOCK --- */}
+              <CardHeader className="pt-6 pb-2">
+                <CardTitle className="text-2xl font-black text-slate-800 leading-tight group-hover:text-primary transition-colors">
+                  {title}
+                </CardTitle>
+                <CardDescription className="text-sm line-clamp-2 italic text-slate-500 pt-1">
+                  {description}
+                </CardDescription>
+              </CardHeader>
+              
+              <CardContent className="pb-8">
+                {/* Participant Progress Bar */}
+                <div className="mb-6 space-y-2">
+                  <div className="flex justify-between items-end text-[10px] font-black uppercase tracking-tighter text-slate-400">
+                    <span>Tribe Growth</span>
+                    <span className={isFull ? "text-red-500" : "text-primary"}>
+                      {participants} / {maxParticipants} Joined
+                    </span>
+                  </div>
+                  <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                    <div 
+                      className={`h-full transition-all duration-1000 rounded-full ${isFull ? 'bg-red-500' : 'bg-primary'}`}
+                      style={{ width: `${(participants / maxParticipants) * 100}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* Footer / CTA Section */}
+                <div className="flex items-center justify-between bg-slate-50 p-4 rounded-2xl border border-slate-100 transition-all group-hover:bg-slate-100/50">
+                  <div className="flex flex-col">
+                    <span className="text-[10px] font-black text-slate-400 uppercase">Entry Fee</span>
+                    <span className="text-2xl font-black text-slate-900 tracking-tighter">
+                      {price === "0" || price?.toLowerCase() === "free" ? "FREE" : price}
+                    </span>
+                  </div>
                   
-                  <CardContent>
-                    <div className="flex items-center justify-between border-t pt-4">
-                      <div className="text-2xl font-bold text-primary">{price}</div>
-                      <Button disabled={isFull}>
-                        {isFull ? "Sold Out" : "Join Event"}
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
+                  <Button 
+                    disabled={isFull}
+                    className={`h-12 px-6 rounded-xl font-black uppercase text-xs transition-all shadow-lg 
+                      ${isFull 
+                        ? 'bg-slate-300' 
+                        : 'bg-primary hover:bg-primary/90 text-white shadow-[0_10px_20px_-10px_rgba(234,88,12,0.5)] group-hover:px-8'
+                      }`}
+                  >
+                    {isFull ? "Sold Out" : "Join Tribe"}
+                  </Button>
+                </div>
+              </CardContent>
+
+              {/* Decorative Elements */}
+              <div className="absolute top-1/2 right-[-5px] w-3 h-6 bg-background rounded-l-full border-y border-l border-slate-100" />
+              <div className="absolute top-1/2 left-[-5px] w-3 h-6 bg-background rounded-r-full border-y border-r border-slate-100" />
+            </Card>
               );
             })}
           </div>
